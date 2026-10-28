@@ -128,7 +128,7 @@
 
 #### Scenario: MT-17 同一幂等键重复提交
 
-- **前置条件**：A 班教师登录，生成 `Idempotency-Key: 01HQ7Z3K9V2M4T8R6B1C0X5DNP`。
+- **前置条件**：A 班教师登录，客户端生成一个 26 位 ULID 作为幂等键（本例用 `01HQ7Z3K9V2M4T8R6B1C0X5DNP`），放入请求头 `Idempotency-Key`。
 - **操作**：用同一键与同一文件连续提交 2 次。
 - **可观测结果**：首次 HTTP 201，第二次 HTTP 200；两次 `data.id` 相同；`materials` 行数增加 1；`uploads/` 下该资料文件只有 1 个。
 

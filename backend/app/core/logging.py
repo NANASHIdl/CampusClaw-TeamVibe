@@ -66,7 +66,9 @@ def configure_logging(level: str = "info", *, console: bool = False) -> None:
 
 
 def get_logger(*, module: str) -> Any:
-    """取带 module 字段的 logger。module 取值见 05 §4：api / services / repositories / integrations。
+    """取带 module 字段的 logger。
+
+    module 取值见 05 §4：api / services / repositories / integrations。
 
     必须用 `structlog.get_logger(module=...)` 而不是 `structlog.get_logger().bind(module=...)`：
     后者会**立刻把 lazy proxy 实体化**，于是任何在 `configure_logging()` 之前 import 的模块

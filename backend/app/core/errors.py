@@ -189,9 +189,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         return _error_response(request, exc.code, exc.message, exc.http_status)
 
     @app.exception_handler(RequestValidationError)
-    async def _validation_error(
-        request: Request, exc: RequestValidationError
-    ) -> JSONResponse:
+    async def _validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
         # 结构校验在 api/ 的绑定环节完成（02 §4），失败统一 1001
         fields = sorted({".".join(str(p) for p in err["loc"]) for err in exc.errors()})
         logger.warning(
@@ -209,9 +207,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(StarletteHTTPException)
-    async def _http_error(
-        request: Request, exc: StarletteHTTPException
-    ) -> JSONResponse:
+    async def _http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         if exc.status_code == status.HTTP_404_NOT_FOUND:
             # 未知路径与「资源不存在」返回一致，不泄露路由是否存在（PC-05）
             return _error_response(

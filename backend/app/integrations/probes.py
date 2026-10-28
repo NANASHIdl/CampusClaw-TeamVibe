@@ -23,7 +23,7 @@ async def probe_http(url: str) -> bool:
         async with httpx.AsyncClient(timeout=PROBE_TIMEOUT_SECONDS) as client:
             response = await client.get(url)
         return response.status_code < 500
-    except Exception:  # noqa: BLE001 - 探测失败一律视为 down
+    except Exception:  # 探测失败一律视为 down，不让健康检查崩掉
         return False
 
 

@@ -20,25 +20,33 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
-      - name: 安装门禁工具
+      # 版本全部钉住：门禁工具的版本变化会让「同样的代码忽绿忽红」，
+      # 与 05 §1 可复现构建的要求一致。升级时要单独提一条变更。
+      - name: 安装后端依赖与门禁工具
         run: |
           python -m pip install --upgrade pip
-          pip install ruff mypy pytest pytest-asyncio
-          npm install -g @fission-ai/openspec@latest
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks-linux-amd64 -o /usr/local/bin/gitleaks
-          chmod +x /usr/local/bin/gitleaks
+          pip install -r backend/requirements.lock
+          pip install pip-audit
+          npm install -g @fission-ai/openspec@1.15.0
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz -o /tmp/gitleaks.tgz
+          tar -xzf /tmp/gitleaks.tgz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+
+      # 前端依赖不装，web-lint / web-types / web-test 会直接报「找不到命令」而不是报代码问题
+      - name: 安装前端依赖
+        run: cd frontend && npm ci --no-audit --no-fund
 
       - name: 文档与规约门禁
         run: make check-docs
 
+      # 只审生产依赖：devDependencies（eslint / vitest / playwright）不进最终镜像，
+      # 它们的告警单独分诊，不让构建工具链的 CVE 阻断业务门禁。
       - name: 依赖漏洞扫描
         run: |
-          pip install pip-audit
-          if [ -f backend/requirements.lock ]; then pip-audit -r backend/requirements.lock; fi
-          if [ -f frontend/package-lock.json ]; then (cd frontend && npm audit --audit-level=high); fi
+          pip-audit -r backend/requirements.lock
+          cd frontend && npm audit --omit=dev --audit-level=high
 
       - name: 代码门禁
-        run: |
-          if [ -f backend/app/main.py ]; then make check; else echo "骨架未落地，跳过代码门禁"; fi
+        run: make check

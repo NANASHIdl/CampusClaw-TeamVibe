@@ -22,9 +22,7 @@ pytestmark = pytest.mark.asyncio
         ("GET", "/api/v1/sessions"),
     ],
 )
-async def test_stub_routes_return_501(
-    client: AsyncClient, method: str, path: str
-) -> None:
+async def test_stub_routes_return_501(client: AsyncClient, method: str, path: str) -> None:
     """PC-15：未实现的能力返回 501 而不是 404，避免被误认为路由没挂上。"""
     response = await client.request(method, path)
 

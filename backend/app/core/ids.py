@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import time
+from typing import TypeGuard
 
 # Crockford Base32：去掉 I / L / O / U，避免与 1 / 0 混淆
 _ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
@@ -31,8 +32,12 @@ def new_ulid() -> str:
     return "".join(reversed(chars))
 
 
-def is_valid_ulid(value: str | None) -> bool:
-    """校验是否为合法的 26 位 ULID；用于判断请求头里的 X-Request-ID 能否继承。"""
+def is_valid_ulid(value: str | None) -> TypeGuard[str]:
+    """校验是否为合法的 26 位 ULID；用于判断请求头里的 X-Request-ID 能否继承。
+
+    返回 TypeGuard[str] 而不是 bool：调用方 `incoming if is_valid_ulid(incoming) else ...`
+    这样写时 mypy 才能把 `incoming` 收窄成 str，否则后续赋值给响应头会报 str | None。
+    """
     return (
         isinstance(value, str)
         and len(value) == _ULID_LENGTH

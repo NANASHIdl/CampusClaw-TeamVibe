@@ -35,12 +35,15 @@
 不依赖口头说明，五条命令即可验证：
 
 ```bash
-make check-docs        # 文档与规约门禁：layout / secret-scan / spec-validate / docs-lint / gate-tamper
-make spec-validate     # 规约结构：四份文件、Scenario 三段齐、编号唯一、**逐能力**失败路径 ≥ 4 且四类齐
-make docs-lint         # 八份规范章节齐、术语表与页面清单可解析、数据字典覆盖 8 张表
-make secret-scan       # 已知键名无值、无 sk-/ghp_/AKIA 形态令牌、无私钥块、.env 未被跟踪
+make check             # 全量 14 项门禁（CI 跑的就是这一条）
+make check-docs        # 其中文档与规约的 5 项：layout / secret-scan / spec-validate / docs-lint / gate-tamper
+make spec-validate     # 真实 openspec --strict + 逐能力失败路径校验（两道都跑）
 cd backend && pytest -q tests   # 骨架行为：健康检查 200/503、空壳 501、404 信封、request_id 继承与替换
+cd frontend && npm ci && npx vitest run   # 前端：ULID 生成器 4 条用例
 ```
+
+`make check` 的 14 项在 CI 同环境（gitleaks 8.21.2 + openspec 1.15.0 + 已装前端依赖）下全部通过，
+输出见 `03-validate-record.md` §2.2。
 
 输出见 `03-validate-record.md`。
 
@@ -50,7 +53,6 @@ cd backend && pytest -q tests   # 骨架行为：健康检查 200/503、空壳 5
 | --- | --- | --- |
 | 容器内验收未执行 | `docker compose up` 与 `curl localhost:8080/health` 的 200 分支未在真实容器里跑过；进程内验证已覆盖同一批断言 | 在能起 Docker 的机器上跑 `tasks.md` 1.16 |
 | `v0.0.1-skeleton` 标签未打 | 交付项「骨架标签存在」未满足 | 1.16 通过后 `make tag-skeleton` |
-| `frontend/package-lock.json` 缺失 | 前端构建不可复现，`npm ci` 不可用（Dockerfile 会显式告警后退化为 `npm install`） | 联网机器上 `cd frontend && npm install` 后提交锁文件 |
 | 主干保护规则未设置 | 需仓库管理员在 GitHub 设置界面操作 | 见 `01-checklist.md` R1 |
-| 未跑真实 `openspec validate --strict` | 本机未安装 openspec，用 `scripts/spec-lint.sh` 按同一组判据兜底（本轮已收紧为逐能力校验） | 装 openspec 后重跑，记录追加到 `03-validate-record.md` |
 | 交叉评审未进行 | 需组内另一人在自己机器上从零启动 | `04-peer-review.md` 留了表格，填完即完成 |
+| `e2e` 空跑 | 骨架期只有 `/health` 探活页，端到端链路第 2 组起落地 | `frontend/e2e/*.spec.ts` 出现后自动生效 |

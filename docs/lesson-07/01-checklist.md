@@ -13,7 +13,7 @@
 | # | 项 | 状态 | 证据 / 说明 |
 | --- | --- | --- | --- |
 | R1 | 地址可访问且教师有权限 | ⚠️ | 仓库 `https://github.com/NANASHIdl/CampusClaw-TeamVibe` 可访问；**主干保护规则需在 GitHub 设置界面开启**（禁止直推 `main`、要求 1 名评审人、要求 `check` 绿），代码层无法代为设置 |
-| R2 | 按 `README.md` 能从零跑起来 | ⚠️ | **从零 clone 已实测**：5 项门禁全绿 + `pytest` 13 项全绿（见 `03-validate-record.md` §6.4）。仍缺的是 `docker compose up --build -d` 与 `curl localhost:8080/health` 的容器内验收（tasks.md 1.16）——编写环境无 Docker 守护进程。进程内等价验证已做：`/health/live` 200、依赖全挂时 `/health` 503、空壳路由 501、404 信封、`request_id` 继承与替换 |
+| R2 | 按 `README.md` 能从零跑起来 | ⚠️ | **从零 clone 已实测**：`make check` 的 14 项在 CI 同环境（gitleaks 8.21.2 + openspec 1.15.0 + 已装前端依赖）下全绿，`pytest` 13 项、`vitest` 4 项通过（见 `03-validate-record.md` §2.2、§6.4）。仍缺 `docker compose up --build -d` 与 `curl localhost:8080/health` 的容器内验收（tasks.md 1.16）——编写环境无 Docker 守护进程；进程内等价验证见 §6 |
 | R3 | 全部提交历史中搜不到密钥明文 | ✅ | `make secret-scan` 通过：已知键名均为空、无 `sk-`/`ghp_`/`AKIA` 形态令牌、无私钥块、`.env` 未被跟踪；`.env.example` 只有键名。`.dockerignore` 也排除了 `.env`，不进镜像层 |
 | R4 | 首次提交只有 `README.md` / `.gitignore` / `LICENSE` / `.env.example` | ✅ | `git show --stat aed794d` 恰为 4 个文件；`.gitignore` 与 `.env.example` 早于任何代码 |
 | R5 | 变更以 `YYYY-MM-DD-短横小写英文名` 命名 | ✅ | `openspec/changes/2026-10-28-bootstrap-skeleton/`；`docs/changes/2026-10-28-bootstrap-skeleton.md` |
@@ -24,7 +24,7 @@
 | # | 项 | 状态 | 证据 / 说明 |
 | --- | --- | --- | --- |
 | S1 | 变更四份文件齐 | ✅ | `proposal.md`、`design.md`、`tasks.md`、`specs/<能力>/spec.md`（6 份） |
-| S2 | `--strict` 校验通过 | ⚠️ | 本机仍未装 `openspec`，用 `scripts/spec-lint.sh` 按同一组判据执行并通过。**本轮已把该脚本从「全文 grep 关键词」收紧为逐能力校验**（见下），装 `openspec` 后需重跑一次并把输出追加到 `03-validate-record.md` |
+| S2 | `--strict` 校验通过 | ✅ | 装了 `openspec 1.15.0`（与 CI 同版本）实跑：`Change '2026-10-28-bootstrap-skeleton' is valid`。`make spec-validate` 现在**两道都跑**——先真实 `--strict`，再 `spec-lint`（后者已从全文 grep 收紧为逐能力校验） |
 | S3 | 每条能力至少一组 Scenario | ✅ | 6 条能力共 90 条 Scenario：PC 15 / ID 13 / CR 13 / MT 21 / RT 13 / AS 15（本轮新增 RT-13） |
 | S4 | 失败路径不少于四条 | ✅ | **现在由门禁逐能力校验**，不再靠人工断言：PC 7 / ID 10 / CR 10 / MT 13 / RT 6 / AS 8 条失败路径，四类各至少一条 |
 | S5 | 能力与 Scenario 一一对应 | ✅ | `02-capability-scenario-matrix.md` 表 A（能力↔Scenario）与表 B（Requirement↔Scenario），共 47 条 Requirement |
@@ -71,11 +71,11 @@
 
 | 状态 | 数量 | 条目 |
 | --- | --- | --- |
-| ✅ 已完成 | 26 | R3 R4 R5 R6 S1 S3 S4 S5 S6 S7 S8 S9 S10 G1 G2 G3 G4 G6 G7 K1 K2 K3 K4 K5 D2 D4 |
-| ⚠️ 部分完成 | 3 | R1（主干保护待设置）、R2（容器验收待执行）、S2（未跑真实 openspec） |
+| ✅ 已完成 | 27 | R3 R4 R5 R6 S1 S3 S4 S5 S6 S7 S8 S9 S10 G1 G2 G3 G4 G6 G7 K1 K2 K3 K4 K5 D2 D4 |
+| ⚠️ 部分完成 | 2 | R1（主干保护待设置）、R2（容器验收待执行） |
 | ⬜ 未完成 | 3 | G5（需另起会话）、D1（等 1.16 验收）、D3（需组内第二人） |
 
-剩下 3 项全部指向**仓库管理员操作**或**另一台机器/另一个人**，不是代码缺口。
+剩下 3 项（R1 / R2 / G5 / D1 / D3 里的 3 个 ⬜）全部指向**仓库管理员操作**或**另一台机器/另一个人**，不是代码缺口。
 
 ---
 
@@ -88,3 +88,9 @@
 | 3 | 日志不是 JSON，是 console 渲染 | 起服务后看 stdout：`2026-10-28 11:27:12 [info] request_done ...` | `get_logger()` 里用 `.bind()` 会**立刻实体化** structlog 的 lazy proxy，于是在 `configure_logging()` 之前 import 的模块（`core.errors`、`core.middleware`）永久停留在默认 ConsoleRenderer。改为 `structlog.get_logger(module=...)` 延迟绑定。同时把「dev 自动 console」改成显式 `LOG_FORMAT=console`，默认一律 JSON（否则 PC-10 的 `json.loads` 断言默认就不成立） |
 | 4 | `layout` 门禁把散文当违规 | 骨架落地后 `layout` 报「services/ 出现 fastapi 依赖」，但 `services/health.py` 只 import 了 repositories 与 integrations | 原实现全文 `grep fastapi`，命中的是注释里那句「本层不 import fastapi」。三个依赖检查改为只匹配 `^\s*(from\|import)\s+`，精度提高、不漏报真实 import（已注入违规验证仍能抓到） |
 | 5 | `retrieval` 缺「资源不存在」失败路径 | `spec-lint` 收紧为逐能力校验后立刻报 `retrieval: 失败路径未覆盖 资源不存在` | 补 RT-13「会话所属班级已不存在 → 404 `1301`」。这不是放宽门禁凑绿，是门禁真的抓到了规约缺口：原矩阵表 C 把 RT-09（资料未就绪）当成「资源不存在」，但 RT-09 断言的是 `hits=[]` 而非 404，语义不对 |
+| 6 | 本地 `gate-tamper` 通过、克隆后仍失败 | 修完第 1 条后从零 `git clone` 复核，5 项门禁里 `gate-tamper` 依旧红 | 摘要算的对象不对：`.cursor/rules/*.mdc`、`.githooks/pre-commit` 从未被编辑，工作区还是 CRLF，而入库是 LF。归一化工作区后重算。方法论：**门禁结论必须用新克隆验证** |
+| 7 | CI 第一次红：`gitleaks` 命中规约里的 `Idempotency-Key: 01HQ7Z...` | CI 日志；本地装 8.21.2 复现，`RuleID: generic-api-key` | ① 改写规约那行，保留具体 ULID 但不再长得像「键 = 凭据」；② `secret-scan.sh` 命中时打印 RuleID / File / Line（真值 redact）。**没有把文档排除出扫描范围** |
+| 8 | 依赖带已知漏洞 | `pip-audit` / `npm audit`：starlette 0.41.3、urllib3 2.3.0、markdown-it / vue / axios / element-plus 共 4 high | 后端 42 个包升到最新并重建 lock（fastapi 0.162 / starlette 1.10 / SQLAlchemy 2.1 / pytest 9…），同步 `pyproject.toml` 区间；前端升 vue 3.5.44 / element-plus 2.14.7 / axios 1.21.0 / markdown-it 14.3.3。现两项审计均 0 漏洞 |
+| 9 | 前端 `newUlid()` 时间戳写成小端 | 写的 vitest 用例「跨毫秒字典序递增」直接失败 | 改大端。小端会让字典序不随时间递增，与后端 `core/ids.py` 解码对不上。用例拆成「解码回时间戳（±5 秒）」+「跨毫秒递增（同一毫秒不保证）」 |
+| 10 | `vue-tsc` 报一串 `Plugin<any>` 类型不兼容 | `npx vue-tsc --noEmit` | `vitest 2.x` 自带 `vite 5`，与项目 `vite 6` 形成两份类型。升 `vitest 3.2.7` 后 dedupe 成单一 6.0.5 |
+| 11 | `gitleaks` 扫 `node_modules` 误报 7 处 | 本地 `npm ci` 后跑门禁，命中 `sass.dart.js` 等产物 | 新增 `.gitleaks.toml` 只排除 `node_modules` / `dist` / 缓存 / `.git`，正则用 `(^|[\\/])` 兼容 Windows 反斜杠（只写 `node_modules/` 会「本地红、CI 绿」）。反向验证：源码里放 `sk-` 令牌仍能抓到 |

@@ -136,7 +136,7 @@ class Settings(BaseSettings):
 def load_settings() -> Settings:
     """读配置；缺失或非法即 SystemExit(1)，不带着默认值继续跑。"""
     try:
-        settings = Settings()  # type: ignore[call-arg]
+        settings = Settings()
     except ValidationError as exc:
         missing: list[str] = []
         invalid: list[str] = []

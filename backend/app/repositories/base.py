@@ -66,7 +66,7 @@ async def ping_db() -> bool:
             async with get_engine().connect() as conn:
                 await conn.execute(text("SELECT 1"))
         return True
-    except Exception:  # noqa: BLE001 - 探测失败一律视为 down，不让健康检查崩掉
+    except Exception:  # 探测失败一律视为 down，不让健康检查崩掉
         return False
 
 

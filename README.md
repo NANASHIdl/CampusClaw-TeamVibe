@@ -59,9 +59,10 @@ curl -s http://localhost:8080/health
 - 入口：`http://localhost:8080`（端口取自 `.env` 的 `WEB_PORT`）
 - 健康检查：`GET /health`，返回版本、时间、`db` / `qdrant` / `llm` 三项依赖连通状态
 - 业务路由：骨架期一律 501 `{"code":1500,"message":"未实现"}`，不是 404
-- 门禁：`make check`，任一子项非零退出码即未通过
-- 只跑文档与规约相关的门禁：`make check-docs`
-- 不装 Docker 只想跑后端测试：`cd backend && pip install -r requirements.lock && pytest -q tests`
+- 门禁：`make check`（14 项），任一子项非零退出码即未通过
+- 只跑文档与规约相关的门禁：`make check-docs`（5 项）
+- 不装 Docker 只跑后端：`cd backend && pip install -r requirements.lock && pytest -q tests`
+- 只跑前端：`cd frontend && npm ci && npx vitest run`（类型检查 `npx vue-tsc --noEmit`）
 
 密钥只放在各人本机的 `.env`：不进代码、不进镜像层、不进前端产物、不进版本历史。轮换步骤见 `docs/specs/03-安全开发规范.md` §3。
 

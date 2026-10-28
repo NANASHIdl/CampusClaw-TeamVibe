@@ -25,10 +25,24 @@ describe('newUlid', () => {
     expect(ids.size).toBe(500)
   })
 
-  it('字典序与时间顺序一致（时间戳在高位）', () => {
+  it('前 10 位是当前毫秒时间戳（ULID 的时间有序性来源）', () => {
+    const alphabet = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
+    const id = newUlid()
+
+    let timestamp = 0
+    for (const char of id.slice(0, 10)) {
+      timestamp = timestamp * 32 + alphabet.indexOf(char)
+    }
+
+    // 允许 5 秒误差：只验证「时间戳在高位且是当前时间」，不验证毫秒精确值
+    expect(Math.abs(timestamp - Date.now())).toBeLessThan(5000)
+  })
+
+  it('跨毫秒生成时字典序递增（同一毫秒内不保证，随机后缀会打乱）', async () => {
     const first = newUlid()
+    await new Promise((resolve) => setTimeout(resolve, 5))
     const later = newUlid()
 
-    expect(later >= first).toBe(true)
+    expect(later > first).toBe(true)
   })
 })

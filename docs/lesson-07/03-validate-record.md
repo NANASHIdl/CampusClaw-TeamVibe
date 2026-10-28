@@ -7,86 +7,67 @@
 | 日期 | 2026-10-28 |
 | 平台 | Windows 11 · Git Bash（`bash 5.x`） |
 | Python | 3.13.12（跑门禁脚本与后端测试） |
-| `openspec` CLI | 未安装（本机 `command -v openspec` 为空），用 `scripts/spec-lint.sh` 按同一组判据兜底 |
-| `gitleaks` | 未安装，用 `scripts/secret-scan.sh` 的内置规则兜底 |
+| `openspec` CLI | **1.15.0**（与 CI 同版本；`openspec validate --strict` 已真实跑通） |
+| `gitleaks` | **8.21.2**（与 CI 同版本；`secret-scan` 走 gitleaks 分支，不再用内置兜底） |
 | Docker | **守护进程未启动**（`npipe:////./pipe/dockerDesktopLinuxEngine` 连不上），因此容器验收未执行 |
-| PyPI | 清华镜像不可达，官方源 `https://pypi.org/simple` 可用（`requirements.lock` 即从官方源安装验证） |
+| PyPI / npm | 清华镜像与 npmmirror 的 audit 端点不可用；官方 `pypi.org` 与 `registry.npmjs.org` 可用 |
 
-> 兜底不等于放宽：`spec-lint.sh` 的判据逐条对应 `openspec validate --strict` 的检查项，且**比它更严**——
-> 见 §7 第 5 条，本轮把「失败路径四类」从全文 grep 改成了逐能力校验。
+> 早期版本的记录里，`openspec` 与 `gitleaks` 都写着「未安装，用兜底」。兜底与真实工具不是一回事——
+> 第 7 条缺陷（`gitleaks` 命中 `Idempotency-Key` 示例）就是兜底放过、真实工具抓住的。
+> 现在两者都按 CI 同版本装好并实跑。
 
-## 2. 五条门禁的实际输出（2026-10-28 骨架落地后重跑）
+## 2. 门禁的实际输出
 
-### `make spec-validate`（→ `scripts/spec-lint.sh 2026-10-28-bootstrap-skeleton`）
-
-```
-spec-lint: 2026-10-28-bootstrap-skeleton
-  ✓ proposal.md   ✓ design.md   ✓ tasks.md   ✓ specs/<能力>/spec.md × 6
-  ✓ proposal: Why   ✓ proposal: What Changes   ✓ proposal: Impact
-  ✓ assistant: 15 条 Scenario，失败路径 8 条，四类齐
-  ✓ classroom: 13 条 Scenario，失败路径 10 条，四类齐
-  ✓ identity: 13 条 Scenario，失败路径 10 条，四类齐
-  ✓ materials: 21 条 Scenario，失败路径 13 条，四类齐
-  ✓ platform-core: 15 条 Scenario，失败路径 7 条，四类齐
-  ✓ retrieval: 13 条 Scenario，失败路径 6 条，四类齐
-  ✓ Scenario 编号唯一
-  ✓ tasks: 第 1 组为骨架   ✓ tasks: 有可执行条目
-spec-lint: 通过
-```
-
-### `make docs-lint`（→ `scripts/docs-lint.sh`）
+### 2.1 `make check-docs`（5 项）
 
 ```
-  ✓ 01-产品设计规范.md（10 章）  ✓ 02-后端开发规范.md（11 章）
-  ✓ 03-安全开发规范.md（11 章）  ✓ 04-测试规范.md（10 章）
-  ✓ 05-部署运维规范.md（9 章）   ✓ 06-AI应用规范.md（9 章）
-  ✓ 07-数据规范.md（9 章）       ✓ 08-评审与完成定义规范.md（10 章）
-  ✓ 术语表存在   ✓ 页面清单存在   ✓ 数据字典覆盖 8 张表
-  ✓ 8 个规则文件   ✓ 6 个技能
-  ✓ AGENTS.md: 硬约束 1 / 2 / 3
-  ✓ docs/ 无占位符
-docs-lint: 通过
+layout       通过（13 项：分层目录、反向依赖、SQL 位置、出站调用位置、路由准入）
+secret-scan  通过（gitleaks 8.21.2：未发现密钥）
+spec-lint    通过（6 份 spec / 90 条 Scenario / 三段齐 / 编号唯一 / 逐能力失败路径 ≥4 且四类齐）
+docs-lint    通过（8 份规范 / 8 个规则 / 6 个技能 / 字典覆盖 8 表 / 无占位符）
+gate-tamper  通过（sha256sum -c 退出码 0）
 ```
 
-### `make secret-scan`（→ `scripts/secret-scan.sh`）
+其中 `spec-validate` 先跑真实 `openspec validate --strict`：
 
 ```
-  · gitleaks 未安装，使用内置规则
-  ✓ .env 未被跟踪
-  ✓ 已知键名均为空或占位
-  ✓ 无 sk-/ghp_/AKIA 形态令牌
-  ✓ 无私钥块
-secret-scan: 通过
+$ openspec validate 2026-10-28-bootstrap-skeleton --strict
+Change '2026-10-28-bootstrap-skeleton' is valid
 ```
 
-### `make layout`（→ `scripts/layout-check.sh`）
-
-**不再是空跑**——骨架落地后它真的在扫代码：
+### 2.2 `make check`（14 项，与 CI 同环境：gitleaks + openspec + 已装前端依赖）
 
 ```
-layout
-  ✓ 分层目录 app/api  ✓ app/services  ✓ app/repositories  ✓ app/models
-  ✓ app/schemas  ✓ app/core  ✓ app/integrations
-  ✓ api/ 未依赖 repositories/
-  ✓ repositories/ 未依赖 services/
-  ✓ services/ 无 fastapi 依赖
-  ✓ SQL 只在 repositories/
-  ✓ 出站调用只在 integrations/
-  ✓ 所有路由声明了准入
-layout: 通过
+api-lint       ✓   ruff check app tests
+api-types      ✓   mypy app（strict，27 个源文件）
+api-test       ✓   pytest -q tests → 13 passed
+api-migrate    ✓   · 骨架期无迁移文件（第 2 组起有），跳过 alembic
+web-lint       ✓   eslint src
+web-types      ✓   vue-tsc --noEmit
+web-test       ✓   vitest run → 4 passed
+e2e            ✓   · e2e 空跑：frontend/e2e/*.spec.ts 不存在（第 2 组起落地）
+fmt-check      ✓   ruff format --check + prettier --check
+layout         ✓
+secret-scan    ✓
+spec-validate  ✓
+docs-lint      ✓
+gate-tamper    ✓
+
+14 项门禁：fail=0
 ```
 
-反向验证（证明它不是摆设）：往 `backend/app/api/v1/me.py` 末尾追加一行
-`from app.repositories.base import ping_db`，重跑立刻报
-`✗ api/ 直接依赖 repositories/（应经 services/）`；删掉该行后恢复通过。
-
-### `make gate-tamper`（→ `sha256sum -c .gates.sha256 --quiet`）
+### 2.3 依赖漏洞扫描
 
 ```
-gate-tamper: 通过（退出码 0）
+$ pip-audit -r backend/requirements.lock
+No known vulnerabilities found
+
+$ cd frontend && npm audit --omit=dev --audit-level=high
+found 0 vulnerabilities
 ```
 
-> **上一版这里写的是「通过」，但实测恒失败。** 详见 §7 第 1 条。
+> 只审生产依赖：`devDependencies`（eslint / vitest / playwright）不进最终镜像，
+> 它们的告警单独分诊，不让构建工具链的 CVE 阻断业务门禁。这条口径写在 CI 的注释里。
 
 ## 3. 后端测试
 
@@ -130,10 +111,12 @@ $ cd backend && pytest -q tests
 | 项 | 原因 | 何时补 |
 | --- | --- | --- |
 | `docker compose up --build -d` + `curl localhost:8080/health` | 编写环境 Docker 守护进程未启动 | 在能起 Docker 的机器上执行，勾 `tasks.md` 1.16 |
-| `openspec validate --strict` | 本机无 openspec | 装好后重跑，把输出追加到本节 |
 | `make eval` | 无 `backend/tests/eval/`（第 6 组任务 6.10） | 第 6 组完成后 |
+| `e2e`（Playwright） | 骨架期只有 `/health` 探活页，端到端链路（登录→资料→提问）第 2 组起落地 | `frontend/e2e/*.spec.ts` 出现后 `make e2e` 自动生效，不再空跑 |
 | 交叉评审 | 需组内另一人 | `04-peer-review.md` |
 | 另起会话验证「生成代码仍按规范」 | 需第二个会话做对照 | 方法：新开会话，只给仓库路径 + 一句话「按 `02-后端开发规范.md` 新增一个 `GET /api/v1/classes/{id}` 只读接口」，比对两次产出的分层与命名是否一致 |
+
+> `openspec validate --strict` 已不再是未执行项——装了 1.15.0 并跑通，见 §2.1。
 
 ## 6. 骨架的进程内验证（替代容器验收的等价证据）
 
@@ -207,6 +190,18 @@ $ cd backend && pytest -q tests
 
 > 第 6 条的方法论：**门禁的通过结论必须用「新克隆」验证，不能用「我本地能跑」代替。**
 > 这正好也是任务清单 §一「每人 clone 后按 README 跑通一次」想防的东西。
+
+### 7.1 CI 第一次红之后修的 5 条（本地兜底放过、CI 真实工具抓住）
+
+| # | 缺陷 | 怎么发现的 | 修法 |
+| --- | --- | --- | --- |
+| 7 | `secret-scan` 在 CI 红：`gitleaks` 命中 `materials/spec.md:131` | CI 日志；本地装了 8.21.2 后复现：`RuleID: generic-api-key`，命中 `Idempotency-Key: 01HQ7Z...` 这行示例 | ① 改写规约：把「生成 `Idempotency-Key: <值>`」改成「生成一个 26 位 ULID 作为幂等键（本例用 …），放入请求头 `Idempotency-Key`」——保留具体值，但不再长得像「键 = 凭据」；② `secret-scan.sh` 命中时**打印 RuleID / File / Line**（真值 redact），否则 CI 只报「命中」等于让人猜。**没有加白名单把文档排除出扫描** |
+| 8 | 依赖版本带已知漏洞 | `pip-audit` / `npm audit` 实跑：starlette 0.41.3 十余条、urllib3 2.3.0 八条；前端 markdown-it / vue / axios / element-plus 共 4 high | 后端 42 个包升到最新（fastapi 0.162 / starlette 1.10 / SQLAlchemy 2.1 / pytest 9 …），重建 `requirements.lock` 并同步 `pyproject.toml` 区间；前端升 vue 3.5.44 / element-plus 2.14.7 / axios 1.21.0 / markdown-it 14.3.3。现在 `pip-audit` 与 `npm audit --omit=dev` 均 0 漏洞 |
+| 9 | 前端 `newUlid()` 时间戳部分写成**小端** | 写的 vitest 用例「跨毫秒生成字典序递增」直接失败 | 改为大端（`timeChars.reverse()`）。小端会导致字典序不随时间递增，与后端 `core/ids.py` 的解码也对不上。用例同时改成两条：解码回时间戳（±5 秒）+ 跨毫秒递增，并注明「同一毫秒内不保证」 |
+| 10 | `vue-tsc` 报一串 `Plugin<any>` 类型不兼容 | `npx vue-tsc --noEmit` | `vitest 2.x` 自带一份 `vite 5`，与项目的 `vite 6` 形成两份 vite 类型。升到 `vitest 3.2.7` 后 vite 被 dedupe 成单一 6.0.5，类型冲突消失 |
+| 11 | `gitleaks` 扫 `node_modules` 误报 | 本地 `npm ci` 后跑门禁，命中 `sass.dart.js` 等打包产物（7 处） | 新增 `.gitleaks.toml`：`[extend] useDefault = true`，只排除 `node_modules` / `dist` / `.venv` / 各类缓存 / `.git`。路径正则用 `(^|[\\/])` 兼容 Windows 反斜杠——只写 `node_modules/` 会「本地红、CI 绿」，这种偏差最骗人。反向验证：往源码里放一个 `sk-` 令牌，仍能抓到 |
+
+另外把 CI 的 `check.yml` 补成真能跑 `make check` 的环境：装 `backend/requirements.lock`（否则 pytest import 不到 fastapi）、`cd frontend && npm ci`（否则 `npx eslint` 直接报找不到命令）、openspec 与 gitleaks 都钉版本。
 
 ## 8. 复核方式
 

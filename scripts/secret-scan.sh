@@ -10,10 +10,13 @@ ok()  { echo "  ✓ $1"; }
 echo "secret-scan"
 
 if command -v gitleaks >/dev/null 2>&1; then
-  if gitleaks detect --no-git --redact -v -s "$ROOT" >/dev/null 2>&1; then
+  # 命中时把结果打到日志里：CI 上看不到「详见 gitleaks detect -v」那条命令的输出，
+  # 只报一句「命中」等于让人去猜。--redact 保证真实值不会二次泄露到日志。
+  if gl_out=$(gitleaks detect --no-git --redact -v -s "$ROOT" 2>&1); then
     ok "gitleaks 未发现密钥"
   else
-    err "gitleaks 命中（详见 gitleaks detect --no-git -v）"
+    echo "$gl_out" | grep -E '^(Finding|RuleID|File|Line|Secret):' | head -40
+    err "gitleaks 命中（上面是 RuleID / File / Line；真值已 redact）"
   fi
   exit "$fail"
 fi

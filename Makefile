@@ -76,11 +76,16 @@ test-web:
 
 e2e:
 	$(require_frontend)
-	@npx playwright test
+	@if [ -n "$$(ls frontend/e2e/*.spec.ts 2>/dev/null)" ]; then \
+	  cd frontend && npx playwright test; \
+	 else \
+	  echo "· e2e 空跑：frontend/e2e/*.spec.ts 不存在"; \
+	  echo "  骨架期只有 /health 探活页，端到端链路（登录→资料→提问）第 2 组起落地，届时本项自动生效"; \
+	 fi
 
 # ---------- 通用 ----------
 fmt-check:
-	@if [ -f backend/app/main.py ]; then ruff format --check backend; \
+	@if [ -f backend/app/main.py ]; then cd backend && ruff format --check app tests; \
 	 else echo "· 后端未落地，跳过 ruff format"; fi
 	@if [ -f frontend/package.json ]; then cd frontend && npx prettier --check "src/**/*.{vue,ts}"; \
 	 else echo "· 前端未落地，跳过 prettier"; fi

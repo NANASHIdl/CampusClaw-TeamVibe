@@ -68,15 +68,19 @@
 ## 门禁结果
 
 ```
-make check-docs
-  spec-lint   通过（6 份 spec / 90 条 Scenario / 三段齐 / 编号唯一 / 逐能力失败路径 ≥4 且四类齐）
-  docs-lint   通过（8 份规范 / 8 个规则 / 6 个技能 / 字典覆盖 8 表 / 无占位符）
-  secret-scan 通过（.env 未跟踪 / 键名无值 / 无令牌形态 / 无私钥块）
-  layout      通过（13 项，含反向依赖、SQL 位置、出站调用位置、路由准入）
-  gate-tamper 通过（sha256sum -c 退出码 0）
+make check        # 14 项，CI 同环境（gitleaks 8.21.2 + openspec 1.15.0 + 已装前端依赖）
+  api-lint api-types api-test api-migrate          ✓
+  web-lint web-types web-test e2e                  ✓（e2e 空跑：无 e2e 用例，第 2 组起落地）
+  fmt-check layout secret-scan spec-validate docs-lint gate-tamper  ✓
+  14 项门禁：fail=0
 
-cd backend && pytest -q tests
-  13 passed
+openspec validate 2026-10-28-bootstrap-skeleton --strict
+  Change '2026-10-28-bootstrap-skeleton' is valid
+
+cd backend && pytest -q tests       13 passed
+cd frontend && npx vitest run       4 passed
+pip-audit -r backend/requirements.lock          No known vulnerabilities found
+npm audit --omit=dev --audit-level=high        found 0 vulnerabilities
 ```
 
 完整输出、端点实测记录与「先红后绿」的修法见 `docs/lesson-07/03-validate-record.md`。
@@ -87,10 +91,10 @@ cd backend && pytest -q tests
 
 | 项 | 结果 |
 | --- | --- |
-| 新增运行时依赖 | 后端 11 个（fastapi / uvicorn / pydantic / pydantic-settings / sqlalchemy / asyncpg / alembic / structlog / httpx / qdrant-client / bcrypt），全部锁在 `backend/requirements.lock` |
+| 新增运行时依赖 | 后端 11 个（fastapi / uvicorn / pydantic / pydantic-settings / sqlalchemy / asyncpg / alembic / structlog / httpx / qdrant-client / bcrypt），全部锁在 `backend/requirements.lock`（44 项全钉版本）；前端 6 个生产依赖 + 16 个开发依赖，锁在 `frontend/package-lock.json` |
 | 平台标记 | `uvloop` 带 `; sys_platform != "win32"`——不加这条 Windows 开发机装不上 |
-| `pip-audit` | 未执行（本机无该工具） |
-| `npm audit` | 未执行（`frontend/package-lock.json` 待生成） |
+| `pip-audit` | **通过**：`No known vulnerabilities found`（升级前 starlette 0.41.3 十余条、urllib3 2.3.0 八条） |
+| `npm audit` | **通过**：`--omit=dev` 0 漏洞（升级前 markdown-it / vue / axios / element-plus 共 4 high）。devDependencies 的告警单独分诊，不进最终镜像 |
 | 镜像扫描 | 未执行（Docker 守护进程未启动） |
 | 密钥扫描 | 通过（内置规则，`gitleaks` 未安装） |
 
@@ -100,12 +104,11 @@ cd backend && pytest -q tests
 | --- | --- | --- | --- |
 | 1 | 容器内验收（`docker compose up` + `curl /health` 200） | 编写环境无 Docker 守护进程 | 在能起 Docker 的机器上跑 `tasks.md` 1.16；进程内等价验证见校验记录 §6 |
 | 2 | `v0.0.1-skeleton` 标签 | 标签要打在验收通过的壳上，1.16 未完成前不打 | 1.16 通过后 `make tag-skeleton` |
-| 3 | `frontend/package-lock.json` | 需 `npm install`，本机到 npm registry 不通 | 联网机器上生成后提交；`Dockerfile.web` 缺锁文件时会显式告警并退化为 `npm install`，不静默 |
-| 4 | 主干保护规则 | 需仓库管理员在 GitHub 设置界面开启 | 禁止直推 `main` + 1 名评审人 + `check` 绿 |
-| 5 | 真实 `openspec validate --strict` | 本机未装 openspec | 装好后重跑并追加输出 |
-| 6 | 交叉评审 | 需组内另一人 | `docs/lesson-07/04-peer-review.md` 表格 |
-| 7 | 另起会话验证「生成代码仍按规范」 | 需第二个会话做对照 | 方法见校验记录 §5 |
-| 8 | 业务实现（第 2–6 组） | 本次只跑骨架，按任务清单 §四「不要一次生成整套业务代码」 | 后续变更逐组 apply |
+| 3 | 主干保护规则 | 需仓库管理员在 GitHub 设置界面开启 | 禁止直推 `main` + 1 名评审人 + `check` 绿 |
+| 4 | 交叉评审 | 需组内另一人 | `docs/lesson-07/04-peer-review.md` 表格 |
+| 5 | 另起会话验证「生成代码仍按规范」 | 需第二个会话做对照 | 方法见校验记录 §5 |
+| 6 | `e2e` 空跑 | 骨架期只有 `/health` 探活页 | `frontend/e2e/*.spec.ts` 出现后 `make e2e` 自动生效 |
+| 7 | 业务实现（第 2–6 组） | 本次只跑骨架，按任务清单 §四「不要一次生成整套业务代码」 | 后续变更逐组 apply |
 
 ## 回滚动作
 

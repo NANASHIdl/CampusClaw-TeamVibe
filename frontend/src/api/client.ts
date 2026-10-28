@@ -34,24 +34,27 @@ export class ApiError extends Error {
 
 const ULID_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
 
-/** 生成 26 位 ULID，用于 X-Request-ID（与后端 core/ids.py 同一字母表）。 */
+/** 生成 26 位 ULID，用于 X-Request-ID（与后端 core/ids.py 同一字母表、同一字节序）。 */
 export function newUlid(): string {
   const bytes = new Uint8Array(16)
   crypto.getRandomValues(bytes)
 
-  const now = Date.now()
-  let out = ''
-  // 前 10 位：48 位毫秒时间戳
-  let ts = now
-  for (let i = 9; i >= 0; i -= 1) {
-    out += ULID_ALPHABET[Math.floor(ts % 32)]
+  // 前 10 位：48 位毫秒时间戳，**大端**（高位在前），否则字典序不随时间递增，
+  // 与后端 core/ids.py 的解码也对不上。
+  const timeChars: string[] = []
+  let ts = Date.now()
+  for (let i = 0; i < 10; i += 1) {
+    timeChars.push(ULID_ALPHABET[ts % 32])
     ts = Math.floor(ts / 32)
   }
+
   // 后 16 位：80 位随机数
+  const randomChars: string[] = []
   for (let i = 0; i < 16; i += 1) {
-    out += ULID_ALPHABET[bytes[i] % 32]
+    randomChars.push(ULID_ALPHABET[bytes[i] % 32])
   }
-  return out
+
+  return timeChars.reverse().join('') + randomChars.join('')
 }
 
 const http = axios.create({

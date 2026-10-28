@@ -4,25 +4,25 @@ version = "0.0.1"
 description = "CampusClaw · TeamVibe 后端：按班级隔离的课程知识库与解题助手"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115,<0.116",
-    "uvicorn[standard]>=0.34,<0.35",
-    "pydantic>=2.10,<3",
-    "pydantic-settings>=2.7,<3",
-    "sqlalchemy[asyncio]>=2.0.36,<2.1",
-    "asyncpg>=0.30,<0.31",
-    "alembic>=1.14,<1.15",
-    "structlog>=24.4,<25",
+    "fastapi>=0.162,<0.163",
+    "uvicorn[standard]>=0.54,<0.55",
+    "pydantic>=2.14,<3",
+    "pydantic-settings>=2.16,<3",
+    "sqlalchemy[asyncio]>=2.1,<2.2",
+    "asyncpg>=0.32,<0.33",
+    "alembic>=1.20,<1.21",
+    "structlog>=26.1,<27",
     "httpx>=0.28,<0.29",
-    "qdrant-client>=1.12,<1.13",
-    "bcrypt>=4.2,<5",
+    "qdrant-client>=1.20,<1.21",
+    "bcrypt>=5,<6",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "ruff>=0.8,<0.9",
-    "mypy>=1.13,<1.14",
-    "pytest>=8.3,<9",
-    "pytest-asyncio>=0.25,<0.26",
+    "ruff>=0.17,<0.18",
+    "mypy>=2.4,<2.5",
+    "pytest>=9.2,<10",
+    "pytest-asyncio>=1.4,<2",
 ]
 
 [tool.ruff]
