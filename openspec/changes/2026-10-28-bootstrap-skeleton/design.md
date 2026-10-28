@@ -55,7 +55,7 @@ app/
 │   ├── users.py  classes.py  materials.py  chunks.py  sessions.py  messages.py
 ├── models/                 SQLAlchemy 映射（与 docs/data-dictionary.md 一一对应）
 ├── schemas/                Pydantic 出入参
-├── core/                   config / security / logging / errors / deps / ids
+├── core/                   config / logging / errors / ids / deps / middleware / security
 └── integrations/           llm / embedding / vectorstore / storage（唯一出站口）
 ```
 
@@ -105,11 +105,12 @@ src/
 
 落地：
 
-- `main.py` + `core/{config,logging,errors,ids}.py`；
+- `main.py` + `core/{config,logging,ids,errors,middleware}.py`；
 - `api/v1/health.py`（三个端点）+ `api/v1/` 其余路由的空壳（返回 501 `1500`，标注「未实现」）；
 - `repositories/` 仅建目录与 `base.py`（会话工厂），无业务查询；
-- `frontend/` 只建 `main.ts` + `router` + 一个 `/health` 探活页；
-- `Dockerfile.api`、`Dockerfile.web`、`docker-compose.yml`、`Makefile`、`.githooks/pre-commit`。
+- `frontend/` 只建 `main.ts` + `router` + 一个 `/health` 探活页（`views/HealthView.vue`）；
+- 依赖与构建文件：`backend/pyproject.toml` + `requirements.lock`、`frontend/package.json` + `package-lock.json`、`frontend/nginx.conf`；
+- `Dockerfile.api`、`Dockerfile.web`、`docker-compose.yml`、`.dockerignore`；仓库已带的 `Makefile` / `.githooks/pre-commit` / `.github/workflows/check.yml` 按实际工具链核对生效。
 
 不落地：任何业务表迁移、任何业务接口实现、任何页面视图。
 
