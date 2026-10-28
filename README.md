@@ -14,7 +14,7 @@
 | 五类必修 + 三类补充规范（八份文件） | ✅ 已入库 | `docs/specs/` |
 | 常驻约束（规则）与按场景流程（技能） | ✅ 已入库 | `AGENTS.md`、`.cursor/rules/`、`skills/` |
 | 核查清单、能力↔Scenario 矩阵、验证记录 | ✅ 已入库 | `docs/lesson-07/` |
-| 应用骨架（FastAPI + Vue3 可启动的壳） | ⬜ 未落地，见 `tasks.md` 第 4 组 | 待变更 `2026-10-28-bootstrap-skeleton` apply |
+| 应用骨架（FastAPI + Vue3 可启动的壳） | ⬜ 未落地，见 `tasks.md` 第 1 组 | 待变更 `2026-10-28-bootstrap-skeleton` apply |
 
 `docs/lesson-07/01-checklist.md` 逐条记录了哪一项已完成、哪一项还空着，不做粉饰。
 
@@ -39,8 +39,8 @@ cd CampusClaw-TeamVibe
 
 # 2. 配置：只复制键名模板，值填在本机 .env（不进版本库）
 cp .env.example .env
-#    必填：SESSION_SECRET（≥32 字节随机串）、DATABASE_URL、QDRANT_URL、
-#          LLM_API_KEY、EMBEDDING_API_KEY、SEED_TEACHER_PASSWORD、SEED_STUDENT_PASSWORD
+#    必填 8 个键的权威清单见 docs/specs/02-后端开发规范.md §7
+#    开发/测试环境额外需要 SEED_*（预置账号），生产环境出现 SEED_* 即启动失败
 
 # 3. 一条命令起全栈
 docker compose up --build -d
@@ -89,7 +89,7 @@ curl -s http://localhost:8080/health
 | 知道这次做什么、不做什么 | `openspec/changes/2026-10-28-bootstrap-skeleton/proposal.md` |
 | 知道为什么这么选型 | `.../design.md` |
 | 知道每条能力的确切行为与失败路径 | `.../specs/<能力>/spec.md` |
-| 照着把骨架写出来 | `.../tasks.md` 第 4 组 |
+| 照着把骨架写出来 | `.../tasks.md` 第 1 组 |
 | 改前端代码前 | `docs/specs/01-产品设计规范.md`、`.cursor/rules/product.mdc` |
 | 改后端代码前 | `docs/specs/02-后端开发规范.md`、`.cursor/rules/backend.mdc` |
 | 提交前 | `docs/specs/08-评审与完成定义规范.md`、`docs/lesson-07/01-checklist.md` |
