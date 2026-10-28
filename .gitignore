@@ -1,0 +1,44 @@
+# 密钥与本地配置：.env 永不入库，只留键名模板
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python / FastAPI
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node / Vue3
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+
+# 测试与报告产物
+playwright-report/
+test-results/
+tests/reports/
+eval/reports/
+
+# 运行时与数据
+*.log
+logs/
+uploads/
+data/
+
+# 编辑器与系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
