@@ -1,0 +1,56 @@
+---
+description: 评审与完成定义规范 — DoD、变更规模上限、评审检查表、门禁子项、例外书面化、提交信息三字段。提交前必读。
+globs: **/*
+alwaysApply: false
+---
+
+# 评审与完成定义规范（规则摘要）
+
+全文：`docs/specs/08-评审与完成定义规范.md`。门禁与提交格式同时常驻在 `AGENTS.md` §2 §3。
+
+## 完成定义（六条，逐条打勾）
+
+1. 全部 Scenario 满足，读写资源的 Requirement 都配了越权用例；
+2. `make check` 14 项全绿；
+3. 提示词/模型改动已跑评测 20/20 并归档 `docs/eval/`；
+4. `README.md`、`docs/data-dictionary.md`、页面清单随改动更新；
+5. 验证记录归档 `docs/changes/<变更名>.md`；
+6. 另一名成员在自己机器上从零跑通。
+
+## 规模上限
+
+不超过 `tasks.md` 里一组任务；`backend/` + `frontend/` 合计 diff ≤ 600 行（不含锁文件与迁移）。超出即拆分。
+
+## 评审分工
+
+人审：规约覆盖、授权判定、迁移可回滚、提示词评测、例外书面化。
+Harness 自审：分层与命名、错误码登记、重复代码。
+工具管：格式（`fmt-check`），不占评审时间。
+
+## 门禁
+
+```
+make check
+# api-lint api-types api-test api-migrate web-lint web-types web-test e2e
+# fmt-check layout secret-scan spec-validate docs-lint gate-tamper
+```
+
+不得为变绿放宽检查、删断言、`--no-verify`。
+
+## 例外
+
+写进对应规范文件的「例外」小节：理由 + 失效条件 + 复核日期。口头豁免无效。例外 > 3 条说明规范要修订。
+
+## 提交信息
+
+正文写「改了什么、依据哪条规约」，尾部三字段，值必须查得到：
+
+```
+Change: 2026-10-28-bootstrap-skeleton
+Verify: make check-docs
+Evidence: docs/changes/2026-10-28-bootstrap-skeleton.md
+```
+
+## 需人审的文件
+
+`AGENTS.md`、`CLAUDE.md`、`.cursor/`、`.githooks/`、`openspec/`、`Makefile`、`scripts/`、`.github/`、`docs/specs/`。

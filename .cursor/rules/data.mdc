@@ -1,0 +1,52 @@
+---
+description: 数据规范 — 命名与审计字段、迁移只增且可回滚、敏感分级、留存与删除副本清单、跨存储一致性。改 models / migrations 时必读。
+globs: backend/app/models/**, backend/migrations/**, backend/app/services/knowledge/**
+alwaysApply: false
+---
+
+# 数据规范（规则摘要）
+
+全文：`docs/specs/07-数据规范.md`；字段含义见 `docs/data-dictionary.md`（唯一处）。
+
+## 命名
+
+- 表名小写复数；主键 `id CHAR(26)`（ULID），**不用自增整数**。
+- 外键 `<单数表名>_id`；时间 `TIMESTAMPTZ` + `_at`，UTC。
+- 状态枚举落 `CHECK` 约束，不靠应用层保证。
+- `class_id` 除 `users` / `classes` 外所有业务表必带且非空。
+
+## 审计
+
+每张业务表 `created_at` / `updated_at` / `created_by`；软删 `deleted_at`；`messages`、`ask_logs` 只增不改。
+
+## 迁移
+
+- 只增不改，`backend/migrations/versions/YYYYMMDDHHMM_<name>.py`；
+- `downgrade()` 必须实现，不允许 `pass`；
+- 语句条件化可重跑；结构变更先加后删；
+- **不在应用启动时自动迁移**。
+
+## 敏感分级
+
+公开 / 内部 / 敏感 / 机密。机密（口令哈希、令牌、`*_API_KEY`）任何接口都不返回，日志里只出现「存在/不存在」。提问原文不进 `ask_logs`（只存长度与 SHA256 前 8 位）。
+
+## 删除副本清单（缺一项即未完成）
+
+1. 业务库（`materials` 软删 7 天后硬删，`chunks` 随之）；
+2. 向量库 `campusclaw_chunks` 对应点；
+3. 对象存储 `uploads/<class_id>/<material_id>.<ext>`；
+4. 缓存键 `search:<class_id>:*`；
+5. 备份介质（下次轮转后消失，删除记录里写明）。
+
+## 跨存储一致性
+
+写入：`materials(pending)` + 落文件 → 提交 → 解析任务 → `chunks` → 向量 → `ready`；任一步失败置 `failed`，可重跑补偿。
+删除顺序相反。向量是派生数据，以 `chunks` 为准，可整表重建。
+
+## 测试数据
+
+生产数据不进测试环境；种子脚本幂等，靠唯一索引而非「先查再插」。
+
+## 判据
+
+`alembic downgrade -1` 后 `alembic upgrade head` 回到同一 schema；删除资料后向量库检索不到该 `chunk_index`、`uploads/` 对应文件 404。

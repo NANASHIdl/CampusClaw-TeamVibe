@@ -1,0 +1,44 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 安装门禁工具
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff mypy pytest pytest-asyncio
+          npm install -g @fission-ai/openspec@latest
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks-linux-amd64 -o /usr/local/bin/gitleaks
+          chmod +x /usr/local/bin/gitleaks
+
+      - name: 文档与规约门禁
+        run: make check-docs
+
+      - name: 依赖漏洞扫描
+        run: |
+          pip install pip-audit
+          if [ -f backend/requirements.lock ]; then pip-audit -r backend/requirements.lock; fi
+          if [ -f frontend/package-lock.json ]; then (cd frontend && npm audit --audit-level=high); fi
+
+      - name: 代码门禁
+        run: |
+          if [ -f backend/app/main.py ]; then make check; else echo "骨架未落地，跳过代码门禁"; fi

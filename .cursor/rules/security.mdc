@@ -1,0 +1,57 @@
+---
+description: 安全开发规范 — 默认拒绝、逐资源授权、跨班 404、密钥与令牌、附件权限、出站白名单。任何涉及认证与资源读取的改动必读。
+globs: backend/**/*.py, frontend/src/**/*.{vue,ts}
+alwaysApply: false
+---
+
+# 安全开发规范（规则摘要）
+
+全文：`docs/specs/03-安全开发规范.md`。三条硬约束同时常驻在 `AGENTS.md` §1。
+
+## 默认拒绝
+
+- `api/v1/` 下所有路由默认需登录；免认证只有 `POST /auth/login` 与 `GET /health*`，且要显式声明并注释原因。
+- 教师端接口显式 `require_role("teacher")`；未声明即视为学生可用 → `layout` 报错。
+
+## 逐资源授权
+
+1. 查询条件同时带 `id` 与 `class_id`（`class_id` 取自会话）；
+2. 取不到 → `1301`，与「非本班」响应逐字节一致；
+3. 不用 403、不返回 200 空对象、不在 `message` 里区分「不存在」与「不是你的」。
+
+`class_id` **只从会话读**，忽略 query / body / header；`X-Role`、`X-User-Id` 一律忽略。
+
+## 越权必须成对
+
+每条读写资源的 Requirement 都要配一条越权 Scenario（水平越权 + 功能级越权各至少一条）。
+
+## 密钥
+
+- 明文只在 `.env`；不进代码、镜像层、前端产物、日志、提示词、响应体、版本历史。
+- 发现泄漏 → **轮换**，不是删文件。轮换五步见 `docs/specs/03` §4。
+
+## 令牌
+
+- `HttpOnly` + `Secure` + `SameSite=Lax` Cookie，`Path=/`，TTL 720 分钟；
+- 不进 `localStorage` / `sessionStorage`、不进 URL、不进日志；
+- 注销即服务端吊销，不等过期。
+
+## 附件
+
+- 原文只走 `GET /api/v1/materials/{id}/file`，先判归属再流式返回；
+- **禁止** `/files/{name}`、`/static/uploads/*`、对象存储直链或预签名 URL；
+- 落盘名由服务端生成（`<material_id>.<ext>`），原始名只作展示且截断 ≤ 200 字符。
+
+## 输入与输出
+
+- 扩展名 + MIME 双重白名单；SQL 全参数绑定；
+- 前端 Markdown 白名单渲染，禁止 `v-html` 渲染未清洗内容；
+- 响应头固定 `nosniff`、`DENY`、`no-referrer`。
+
+## 出站白名单
+
+只允许 `ALLOWED_OUTBOUND_HOSTS` 内的 host；禁止内网段与 `169.254.169.254`；禁止跨 host 重定向。不在名单内直接抛 `1501`，不发请求。
+
+## 判据
+
+互换 `material_id` 重放，响应除 `request_id` 外逐字节相同；登录后 `localStorage` 为空；`/static/uploads/x.pdf` 返回 404；`LLM_BASE_URL` 指向 `127.0.0.1` 时返回 `1501` 且日志有 `outbound_blocked`。

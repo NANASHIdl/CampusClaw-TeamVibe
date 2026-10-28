@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# 本地提交钩子：密钥扫描 + 格式检查。不得用 --no-verify 跳过（docs/specs/08 §5）。
+set -uo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT" || exit 1
+
+echo "[pre-commit] secret-scan"
+if ! bash scripts/secret-scan.sh; then
+  echo "[pre-commit] 密钥扫描未通过，提交已阻断。"
+  echo "[pre-commit] 处置方式是轮换密钥，不是删文件（docs/specs/03 §4）。"
+  exit 1
+fi
+
+# .env 绝不能进暂存区
+if git diff --cached --name-only | grep -qE '(^|/)\.env$'; then
+  echo "[pre-commit] 暂存区包含 .env，提交已阻断。"
+  exit 1
+fi
+
+# 格式检查（工具缺失时跳过并提示，不静默通过代码格式）
+if [ -f backend/app/main.py ] && command -v ruff >/dev/null 2>&1; then
+  echo "[pre-commit] ruff format --check"
+  ruff format --check backend || { echo "[pre-commit] 格式不一致，先 ruff format backend"; exit 1; }
+fi
+
+if [ -f frontend/package.json ] && command -v npx >/dev/null 2>&1; then
+  echo "[pre-commit] prettier --check"
+  (cd frontend && npx prettier --check "src/**/*.{vue,ts}") || { echo "[pre-commit] 格式不一致"; exit 1; }
+fi
+
+echo "[pre-commit] 通过"

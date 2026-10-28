@@ -1,0 +1,68 @@
+---
+description: 后端开发规范 — 分层与依赖方向、接口命名、响应结构与错误码、校验位置、事务与幂等、配置外置、分页排序。改 backend/ 时必读。
+globs: backend/**/*.py
+alwaysApply: false
+---
+
+# 后端开发规范（规则摘要）
+
+全文：`docs/specs/02-后端开发规范.md`。
+
+## 依赖方向（`make check` 的 `layout` 会扫）
+
+```
+api → services → repositories → models
+        ↘ integrations
+core 可被任意层依赖
+```
+
+- `api/` 不得 import `repositories/`；
+- `services/` 不得 import `fastapi.Request` / `Depends`；
+- 除 `repositories/` 外不得出现 SQL（`select(`、`text("`）；
+- 除 `services/` 外不得直接 import `integrations/`。
+
+## 接口
+
+- 前缀 `/api/v1/`，资源小写复数，动作型用名词后缀（`/materials/{id}/reindex`）。
+- 方法语义固定：GET 查、POST 建、PUT 整体替换、PATCH 局部、DELETE 删。
+
+## 响应结构（统一由 `core/errors.py` 产出，路由返回业务对象）
+
+```json
+{ "code": 0, "message": "ok", "data": {}, "request_id": "01HQ..." }
+```
+
+错误码区间：1000 参数 / 1100 未认证 / 1200 未授权与跨资源 / 1300 不存在 / 1400 业务规则 / 1500 依赖不可达 / 1600 频率。
+新增错误码必须同时登记到 `core/errors.py` 与 `docs/specs/02` §3 的表。
+
+跨班访问用 `1201`，响应与 `1301` **逐字节一致**（除 `request_id`）。
+
+## 校验位置
+
+- 结构与范围校验在 `api/`（Pydantic `Field(ge=, le=, max_length=)`）；进 `services/` 的对象视为已校验。
+- 业务规则（状态机、配额）在 `services/`，返回 14xx。
+- 归属判定写进 `repositories/` 的查询条件（`id` + `class_id` 同时命中），不在业务层「先查再判」。
+- **非法筛选必须报错**，不得忽略后返回全量：`mode=foo` → 400 `1003`；`sort=password` → 400 `1005`。
+
+## 事务与幂等
+
+- 事务边界在 `services/`；`repositories/` 不 `commit()`。
+- **事务内不得夹带外部调用**（模型、嵌入、向量库、对象存储）。
+- `POST /materials` 认 `Idempotency-Key`；`POST /classes/join` 幂等返回 200。唯一性靠唯一索引，不靠「先查有没有」。
+- 并发更新用条件更新（`WHERE status='pending'`），影响行数 0 即 1401。
+
+## 配置外置
+
+只从 `core/config.py` 的 `Settings` 读；缺必填键**启动失败**并打印缺失键名，不带随机值继续。
+
+## 分页与排序
+
+`page`（默认 1）/ `page_size`（默认 20，上限 50）；排序白名单 `created_at` / `title`，**必须带唯一兜底键** `id`。
+
+## 日志
+
+一行一条 JSON，走 `core/logging.py`；不落令牌、口令、资料正文、提问原文。禁止 `print`。
+
+## 判据
+
+在 `services/` 搜 `await llm` / `await qdrant`，被包在事务里即违规；`mode=foo` 返回全量即违规。

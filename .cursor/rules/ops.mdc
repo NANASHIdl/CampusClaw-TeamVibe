@@ -1,0 +1,56 @@
+---
+description: 部署运维规范 — 多阶段构建、同镜像跨环境、健康检查与优雅停机、结构化日志字段、发布与回滚、备份目标。改 Dockerfile / compose / deploy 时必读。
+globs: Dockerfile*, docker-compose*.yml, deploy/**
+alwaysApply: false
+---
+
+# 部署运维规范（规则摘要）
+
+全文：`docs/specs/05-部署运维规范.md`。
+
+## 构建
+
+- 两个 Dockerfile 都分阶段：builder 装依赖编译 → runtime 只拷产物；`USER 10001`，非 root。
+- 按锁文件安装（`pip install -r requirements.lock`、`npm ci`）；镜像标签用提交号短 SHA，**不用 `latest`**。
+- `.dockerignore` 排除 `.env`、`.git/`、`node_modules/`、`uploads/`；`.env` 不得进构建上下文。
+
+## 环境
+
+dev / test / prod 三级；**同一镜像跨环境，只换配置**。`api`、`db`、`qdrant` 不映射宿主端口，对外只有 `web`（`WEB_PORT`，默认 8080）。
+
+## 健康检查
+
+| 端点 | 语义 | 失败 |
+| --- | --- | --- |
+| `/health/live` | 进程存活 | 不查依赖，恒 200 |
+| `/health/ready` | 可接流量 | 依赖 down → 503 |
+| `/health` | 综合（版本 + 依赖明细） | 依赖 down → 503，**进程不退出** |
+
+依赖探测各 2 秒超时；`llm` 只查可达性，不发计费调用。
+
+## 优雅停机
+
+`SIGTERM` → 停止接新连接 → 等在途请求完成（上限 30 秒）→ 退出；超时记 `shutdown_forced`。
+
+## 日志字段（一行一条 JSON）
+
+必填：`ts` `level` `module` `request_id` `event`；错误时加 `error_code`；带耗时加 `latency_ms`。
+禁止落：令牌原值、口令、资料正文、提问原文、提示词全文。
+
+## 发布与回滚
+
+1. 构建并以短 SHA 打标签 → 2. 迁移 → 3. 滚动/蓝绿 → 4. `/health/ready` 通过再接流量 → 5. 打版本标签并写 `docs/changes/<变更名>.md`。
+
+回滚只有一条分支：`IMAGE_TAG=<上一 SHA> docker compose up -d --no-deps api`，不回滚数据。**未演练过的回滚不算可用**。
+
+## 数据变更顺序
+
+加字段 → 双写 → 切读 → 删旧字段；`alembic upgrade head` 只在发布第 2 步执行，**不在应用启动时自动迁移**。
+
+## 备份
+
+每日 02:00 全量 + WAL 归档；全量留 30 天、WAL 7 天；RPO 15 分钟、RTO 2 小时；每学期演练一次。
+
+## 判据
+
+`docker run --rm <image> env | grep -E "SESSION_SECRET|API_KEY"` 为空；停掉 qdrant 后 `/health` 返回 503 且 `deps.qdrant=down`，`api` 容器仍 `Up`。
