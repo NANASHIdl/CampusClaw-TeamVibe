@@ -1,0 +1,80 @@
+# 本机一键起全栈：clone → 填 .env → docker compose up --build -d → curl localhost:8080/health
+#
+# 端口约定（05 §1、tasks.md 1.13）：只有 web 映射宿主端口，api / db / qdrant 一律不映射，
+# 从宿主机访问不到数据库与向量库，减少误连与横向移动面。
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-dev}
+    env_file:
+      - .env
+    environment:
+      # 容器内网地址由 compose 注入，覆盖 .env 里给宿主机直跑用的 localhost
+      APP_ENV: ${APP_ENV:-dev}
+      API_PORT: "8000"
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://campusclaw:campusclaw@db:5432/campusclaw}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+    expose:
+      - "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import sys, urllib.request
+          try:
+              with urllib.request.urlopen("http://127.0.0.1:8000/health/ready", timeout=3) as r:
+                  sys.exit(0 if r.status == 200 else 1)
+          except Exception:
+              sys.exit(1)
+      interval: 15s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: campusclaw
+      POSTGRES_PASSWORD: campusclaw
+      POSTGRES_DB: campusclaw
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U campusclaw -d campusclaw"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.12.4
+    volumes:
+      - qdrantdata:/qdrant/storage
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  qdrantdata:

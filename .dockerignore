@@ -1,0 +1,26 @@
+# 镜像构建上下文：绝不把 .env、密钥、版本历史、依赖目录打进镜像层（AGENTS.md §1.3）
+.env
+.env.*
+!.env.example
+.git
+.github
+.githooks
+node_modules
+**/node_modules
+dist
+**/dist
+__pycache__
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.venv
+venv
+docs
+openspec
+skills
+.cursor
+backend/tests
+*.md
+!README.md

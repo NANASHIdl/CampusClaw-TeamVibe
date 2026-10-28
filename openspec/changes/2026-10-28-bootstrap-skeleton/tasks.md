@@ -16,23 +16,25 @@
 
 **目标**：clone → 填 `.env` → 一条命令启动 → `/health` 成功。不含任何业务实现。
 
-- [ ] 1.1 建后端分层目录：`app/{api/v1,services,repositories,models,schemas,core,integrations}`，每层一个 `__init__.py`
-- [ ] 1.2 `core/config.py`：pydantic-settings 读全部键；必填键清单以 `docs/specs/02-后端开发规范.md` §7 的表为准（8 个 + `SEED_*` 条件必填）；缺必填键 `SystemExit(1)` 并打印键名
-- [ ] 1.3 `core/logging.py`：structlog 单行 JSON，字段 `ts/level/module/request_id/event`；开发环境加 console 渲染
-- [ ] 1.4 `core/ids.py`：ULID 生成与校验（26 位）
-- [ ] 1.5 `core/errors.py`：`ErrorCode` 枚举（登记 1001–1601 全部已用码）+ 统一响应模型 + 全局异常处理器
-- [ ] 1.6 `core/middleware.py`：`X-Request-ID` 继承或生成 → 绑定日志上下文 → 回写响应头 → 计时
-- [ ] 1.7 `api/v1/health.py`：`/health`、`/health/live`、`/health/ready`；**不走统一信封**（见 02 §3 例外条款）；依赖探测各 2 秒超时；`llm` 只查可达性
-- [ ] 1.8 `api/v1/{auth,me,classes,materials,search,sessions}.py` 挂空壳路由，统一返回 501 + `code=1500`，响应体注明「未实现」
-- [ ] 1.9 `repositories/base.py`：async session 工厂与依赖；不写任何业务查询
-- [ ] 1.10 `main.py`：装配顺序 Settings → 日志 → 中间件 → 异常处理器 → 路由；`SIGTERM` 优雅停机 30 秒
-- [ ] 1.11 `frontend/` 骨架：`src/main.ts`、`src/router/index.ts`（仅 `/health` 探活页 `src/views/HealthView.vue`）、`src/styles/tokens.scss`、`src/constants/copy.ts` 占位
-- [ ] 1.12 依赖与构建文件：`backend/pyproject.toml` + `backend/requirements.lock`（锁定版本）、`frontend/package.json` + `frontend/package-lock.json`、`frontend/nginx.conf`（反代 `/api/` 与 `/health` 到 `api:8000`，不服务 `uploads/`）
-- [ ] 1.13 容器：`Dockerfile.api`、`Dockerfile.web`、`docker-compose.yml`、`.dockerignore`；`api`/`db`/`qdrant` 不映射宿主端口；`healthcheck` 打 `/health/ready`
-- [ ] 1.14 门禁落地：核对 `Makefile` 的 14 个目标可跑（仓库已带，需按实际工具链修正命令）、`make gates-refresh` 重算摘要
-- [ ] 1.15 钩子与 CI：`git config core.hooksPath .githooks` 使 `.githooks/pre-commit` 生效；核对 `.github/workflows/check.yml` 与 `make check-docs` 一致
+- [x] 1.1 建后端分层目录：`app/{api/v1,services,repositories,models,schemas,core,integrations}`，每层一个 `__init__.py`
+- [x] 1.2 `core/config.py`：pydantic-settings 读全部键；必填键清单以 `docs/specs/02-后端开发规范.md` §7 的表为准（8 个 + `SEED_*` 条件必填）；缺必填键 `SystemExit(1)` 并打印键名
+- [x] 1.3 `core/logging.py`：structlog 单行 JSON，字段 `ts/level/module/request_id/event`；开发环境加 console 渲染
+- [x] 1.4 `core/ids.py`：ULID 生成与校验（26 位）
+- [x] 1.5 `core/errors.py`：`ErrorCode` 枚举（登记 1001–1601 全部已用码）+ 统一响应模型 + 全局异常处理器
+- [x] 1.6 `core/middleware.py`：`X-Request-ID` 继承或生成 → 绑定日志上下文 → 回写响应头 → 计时
+- [x] 1.7 `api/v1/health.py`：`/health`、`/health/live`、`/health/ready`；**不走统一信封**（见 02 §3 例外条款）；依赖探测各 2 秒超时；`llm` 只查可达性
+- [x] 1.8 `api/v1/{auth,me,classes,materials,search,sessions}.py` 挂空壳路由，统一返回 501 + `code=1500`，响应体注明「未实现」
+- [x] 1.9 `repositories/base.py`：async session 工厂与依赖；不写任何业务查询
+- [x] 1.10 `main.py`：装配顺序 Settings → 日志 → 中间件 → 异常处理器 → 路由；`SIGTERM` 优雅停机 30 秒
+- [x] 1.11 `frontend/` 骨架：`src/main.ts`、`src/router/index.ts`（仅 `/health` 探活页 `src/views/HealthView.vue`）、`src/styles/tokens.scss`、`src/constants/copy.ts` 占位
+- [x] 1.12 依赖与构建文件：`backend/pyproject.toml` + `backend/requirements.lock`（锁定版本；`uvloop` 带 `sys_platform != "win32"` 标记）、`frontend/package.json`、`frontend/nginx.conf`（反代 `/api/` 与 `/health` 到 `api:8000`，不服务 `uploads/`）；**`frontend/package-lock.json` 待 `npm install` 生成**（本机无外网，见 1.17 说明）
+- [x] 1.13 容器：`Dockerfile.api`、`Dockerfile.web`、`docker-compose.yml`、`.dockerignore`；`api`/`db`/`qdrant` 不映射宿主端口；`healthcheck` 打 `/health/ready`
+- [x] 1.14 门禁落地：核对 `Makefile` 的 14 个目标可跑（仓库已带，需按实际工具链修正命令）、`make gates-refresh` 重算摘要
+- [x] 1.15 钩子与 CI：`git config core.hooksPath .githooks` 使 `.githooks/pre-commit` 生效；核对 `.github/workflows/check.yml` 与 `make check-docs` 一致
 - [ ] 1.16 骨架验收：`docker compose up --build -d` 后 `curl localhost:8080/health` 返回 200，`deps` 三项有值；停掉 qdrant 后返回 503 且 `deps.qdrant=down`、api 容器仍 `Up`
+  - **未勾原因**：编写时所在环境无 Docker 守护进程，无法起容器。已做等价验证：`pytest` 全绿 + `uvicorn` 起服务后 `curl /health` 返回 503 且 `deps` 三项 `down`（PC-13 分支）；200 分支由单测替身覆盖。请在能起 Docker 的机器上跑一遍本行命令再勾选
 - [ ] 1.17 打标签 `v0.0.1-skeleton`（`make tag-skeleton`），写 `docs/changes/2026-10-28-bootstrap-skeleton.md` 的骨架验收小节
+  - **故意未勾**：标签要打在「验收通过的壳」上。1.16 未完成前打标签，等于给一个没跑过的壳盖章——与本仓库此前把 `gate-tamper` 标成「通过」是同一类错误，不重复
 
 **完成现象**：新人按 `README.md` 从零操作，中间不需要任何人补充口头说明。
 

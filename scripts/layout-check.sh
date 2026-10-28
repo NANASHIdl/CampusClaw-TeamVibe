@@ -22,19 +22,22 @@ for d in api services repositories models schemas core integrations; do
 done
 
 # 反向依赖
-if grep -rn 'from app.repositories\|import app.repositories' "$APP/api" >/dev/null 2>&1; then
+# 只匹配真实的 import 语句：原实现用全文 grep，把注释里写「不 import fastapi」也算违规，
+# 于是「解释规则」本身会触发规则。收窄到 import 行是提高精度，不是放宽——漏报的只有散文。
+IMPORT_RE='^[[:space:]]*(from|import)[[:space:]]+'
+if grep -rnE "${IMPORT_RE}app\.repositories" "$APP/api" >/dev/null 2>&1; then
   err "api/ 直接依赖 repositories/（应经 services/）"
 else
   ok "api/ 未依赖 repositories/"
 fi
 
-if grep -rn 'from app.services\|import app.services' "$APP/repositories" >/dev/null 2>&1; then
+if grep -rnE "${IMPORT_RE}app\.services" "$APP/repositories" >/dev/null 2>&1; then
   err "repositories/ 依赖 services/（反向）"
 else
   ok "repositories/ 未依赖 services/"
 fi
 
-if grep -rn 'fastapi' "$APP/services" >/dev/null 2>&1; then
+if grep -rnE "${IMPORT_RE}fastapi" "$APP/services" >/dev/null 2>&1; then
   err "services/ 出现 fastapi 依赖（业务层不应知道 HTTP）"
 else
   ok "services/ 无 fastapi 依赖"

@@ -1,0 +1,36 @@
+# 后端镜像。只用 requirements.lock 安装，保证可复现构建（05 §1）。
+# 密钥不在这里：.env 只在运行时通过 compose 的 env_file 注入，绝不 COPY 进镜像层（AGENTS.md §1.3）。
+
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+# 依赖层单独一层：改代码不会触发重新装依赖
+COPY backend/requirements.lock ./requirements.lock
+RUN pip install --no-cache-dir -r requirements.lock
+
+COPY backend/app ./app
+COPY backend/migrations ./migrations
+COPY backend/alembic.ini ./alembic.ini
+COPY backend/pyproject.toml ./pyproject.toml
+
+# 非 root 运行
+RUN useradd --create-home --uid 10001 appuser && chown -R appuser:appuser /app
+USER appuser
+
+ARG GIT_COMMIT=dev
+ENV APP_COMMIT=${GIT_COMMIT} \
+    APP_VERSION=0.0.1 \
+    API_PORT=8000
+
+EXPOSE 8000
+
+# 优雅停机 30 秒：等在途请求完成再退出（05 §3）
+# --no-access-log + --log-level warning：uvicorn 自己的日志不是 JSON，会把结构化日志流冲乱；
+# 访问日志由 core/middleware.py 的 request_done 事件统一产出（05 §4）。
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-graceful-shutdown", "30", "--no-access-log", "--log-level", "warning"]

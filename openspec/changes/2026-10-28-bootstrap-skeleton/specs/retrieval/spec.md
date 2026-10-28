@@ -95,3 +95,14 @@
 - **前置条件**：请求不带 Cookie。
 - **操作**：`GET /api/v1/search?q=递归树`。
 - **可观测结果**：HTTP 401；`code=1101`；不返回任何命中；日志无 `search_done`。
+
+### Requirement: 会话所属班级失效时明确失败
+
+系统 SHALL 在会话指向的 `class_id` 已不存在（教师解散班级后硬删）时返回 404 `1301`，与「资源不存在」逐字节一致；**不得**退化成「无命中」返回 200 空结果，否则学生会以为本班资料为空。
+
+#### Scenario: RT-13 会话班级已不存在
+
+- **前置条件**：A 班学生已登录，会话 Cookie 有效；随后 A 班被解散并从 `classes` 表硬删（`materials` 与向量库的清理任务尚未跑完）。
+- **操作**：`GET /api/v1/search?q=递归树&mode=keyword`。
+- **可观测结果**：HTTP 404；`code=1301`；`message="资源不存在"`；`data=null`；响应体不含任何 `material_id` 或 `title`；日志 `event="session_class_missing"` 且 `class_id` 为原班级 ID；不返回 500，也不返回 200 空结果。
+

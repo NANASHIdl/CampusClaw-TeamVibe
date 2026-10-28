@@ -1,0 +1,41 @@
+# 行尾统一：这条不加，Windows 上 clone 出来就是 CRLF，
+# 于是 `sha256sum -c .gates.sha256` 把 \r 当成文件名的一部分、全部报「无法读取」，
+# 而 scripts/*.sh 会报 `\r: command not found`。原 gate-tamper 恒失败就是这个原因。
+* text=auto eol=lf
+
+*.sh            text eol=lf
+*.py            text eol=lf
+*.ts            text eol=lf
+*.vue           text eol=lf
+*.scss          text eol=lf
+*.json          text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.md            text eol=lf
+*.mdc           text eol=lf
+*.mako          text eol=lf
+*.ini           text eol=lf
+*.toml          text eol=lf
+*.conf          text eol=lf
+.gates.sha256   text eol=lf
+Makefile        text eol=lf
+Dockerfile.*    text eol=lf
+.gitignore      text eol=lf
+.dockerignore   text eol=lf
+.env.example    text eol=lf
+
+# Windows 脚本保持 CRLF，否则 cmd/powershell 解析异常
+*.bat           text eol=crlf
+*.cmd           text eol=crlf
+*.ps1           text eol=crlf
+
+# 二进制：不做行尾转换
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.pdf           binary
+*.woff          binary
+*.woff2         binary
+*.ttf           binary

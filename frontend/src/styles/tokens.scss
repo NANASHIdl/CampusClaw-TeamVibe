@@ -1,0 +1,80 @@
+/**
+ * 视觉令牌。所有间距、字号、语义色只在这里定义。
+ *
+ * 规范依据：docs/specs/01-产品设计规范.md §8
+ * - 间距刻度固定 8 / 16 / 24 / 32（--cc-space-1..4），不使用 5、10、15 这类随手值；
+ * - 字号三级：正文 14px、小标题 16px、页面标题 20px；
+ * - 页面不得内联 style 或新建 .css 类，例外只能加进本文件。
+ */
+
+:root {
+  --cc-space-1: 8px;
+  --cc-space-2: 16px;
+  --cc-space-3: 24px;
+  --cc-space-4: 32px;
+
+  --cc-font-body: 14px;
+  --cc-font-subtitle: 16px;
+  --cc-font-title: 20px;
+
+  /* 覆盖 Element Plus 的字号与间距基线 */
+  --el-font-size-base: var(--cc-font-body);
+  --el-font-size-medium: var(--cc-font-subtitle);
+  --el-font-size-large: var(--cc-font-title);
+}
+
+/* ---- 页面骨架 ---- */
+.cc-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--cc-space-4) var(--cc-space-2);
+}
+
+.cc-page__title {
+  font-size: var(--cc-font-title);
+  margin: 0 0 var(--cc-space-1);
+}
+
+.cc-page__description {
+  font-size: var(--cc-font-body);
+  color: var(--el-text-color-secondary);
+  margin: 0 0 var(--cc-space-3);
+}
+
+/* ---- 体检卡片 ---- */
+.cc-health__header {
+  display: flex;
+  align-items: center;
+  gap: var(--cc-space-1);
+  margin-bottom: var(--cc-space-2);
+}
+
+.cc-health__deps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cc-space-1);
+  margin-bottom: var(--cc-space-3);
+}
+
+.cc-health__dep {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cc-space-2);
+}
+
+.cc-health__meta {
+  font-size: var(--cc-font-body);
+  color: var(--el-text-color-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cc-space-1);
+  margin-bottom: var(--cc-space-3);
+}
+
+/* 断点两档：< 768px 单列，≥ 1200px 双列（01 §9） */
+@media (min-width: 1200px) {
+  .cc-page {
+    max-width: 960px;
+  }
+}

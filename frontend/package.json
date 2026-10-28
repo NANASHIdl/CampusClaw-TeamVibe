@@ -1,0 +1,40 @@
+{
+  "name": "campusclaw-teamvibe-web",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "lint": "eslint src",
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "format:check": "prettier --check \"src/**/*.{vue,ts}\""
+  },
+  "dependencies": {
+    "axios": "1.7.9",
+    "element-plus": "2.9.1",
+    "markdown-it": "14.1.0",
+    "pinia": "2.3.0",
+    "vue": "3.5.13",
+    "vue-router": "4.5.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1",
+    "@types/markdown-it": "14.1.2",
+    "@types/node": "22.10.2",
+    "@vitejs/plugin-vue": "5.2.1",
+    "@vue/test-utils": "2.4.6",
+    "eslint": "9.17.0",
+    "eslint-plugin-vue": "9.32.0",
+    "jsdom": "25.0.1",
+    "prettier": "3.4.2",
+    "sass": "1.83.0",
+    "typescript": "5.7.2",
+    "typescript-eslint": "8.18.1",
+    "vite": "6.0.5",
+    "vitest": "2.1.8",
+    "vue-tsc": "2.2.0"
+  }
+}

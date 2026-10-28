@@ -1,0 +1,64 @@
+[project]
+name = "campusclaw-teamvibe-api"
+version = "0.0.1"
+description = "CampusClaw · TeamVibe 后端：按班级隔离的课程知识库与解题助手"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115,<0.116",
+    "uvicorn[standard]>=0.34,<0.35",
+    "pydantic>=2.10,<3",
+    "pydantic-settings>=2.7,<3",
+    "sqlalchemy[asyncio]>=2.0.36,<2.1",
+    "asyncpg>=0.30,<0.31",
+    "alembic>=1.14,<1.15",
+    "structlog>=24.4,<25",
+    "httpx>=0.28,<0.29",
+    "qdrant-client>=1.12,<1.13",
+    "bcrypt>=4.2,<5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.8,<0.9",
+    "mypy>=1.13,<1.14",
+    "pytest>=8.3,<9",
+    "pytest-asyncio>=0.25,<0.26",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "ASYNC", "S", "C4", "SIM", "RUF"]
+ignore = [
+    "S101",  # 测试里用 assert 是正常的
+    "RUF001", "RUF002", "RUF003",  # 中文全角标点在注释里是刻意为之
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S105", "S106"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+plugins = ["pydantic.mypy"]
+exclude = ["migrations/"]
+
+[[tool.mypy.overrides]]
+module = ["qdrant_client.*", "structlog.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "eval: 提示词评测集（第 6 组落地，需要真实模型）",
+]

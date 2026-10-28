@@ -36,25 +36,28 @@ define require_frontend
 endef
 
 # ---------- 后端 ----------
+# 后端工具链都从 backend/ 目录跑：pyproject.toml 在 backend/，ruff/mypy/pytest 的配置也在那里
 api-lint:
 	$(require_backend)
-	@ruff check backend
+	@cd backend && ruff check app tests
 
 api-types:
 	$(require_backend)
-	@mypy backend/app
+	@cd backend && mypy app
 
 api-test: test-api
 
 test-api:
 	$(require_backend)
-	@pytest -q backend/tests
+	@cd backend && pytest -q tests
 
 api-migrate:
 	$(require_backend)
-	@alembic -c backend/alembic.ini check
-	@alembic -c backend/alembic.ini downgrade -1
-	@alembic -c backend/alembic.ini upgrade head
+	@if [ -z "$$(ls backend/migrations/versions/*.py 2>/dev/null)" ]; then \
+	  echo "· 骨架期无迁移文件（第 2 组起有），跳过 alembic"; \
+	 else \
+	  cd backend && alembic check && alembic downgrade -1 && alembic upgrade head; \
+	 fi
 
 # ---------- 前端 ----------
 web-lint:
@@ -90,11 +93,12 @@ secret-scan:
 
 spec-validate:
 	@if command -v openspec >/dev/null 2>&1; then \
+	  echo "· openspec 已安装，先跑真实 --strict"; \
 	  openspec validate $(CHANGE) --strict; \
 	 else \
-	  echo "· openspec 未安装，使用 scripts/spec-lint.sh 兜底"; \
-	  bash scripts/spec-lint.sh $(CHANGE); \
+	  echo "· openspec 未安装，跳过 --strict（scripts/spec-lint.sh 会覆盖结构类判据）"; \
 	 fi
+	@bash scripts/spec-lint.sh $(CHANGE)
 
 docs-lint:
 	@bash scripts/docs-lint.sh
@@ -111,11 +115,11 @@ gates-refresh:
 # ---------- 其他 ----------
 eval:
 	$(require_backend)
-	@pytest -q backend/tests/eval -m eval
+	@cd backend && pytest -q tests/eval -m eval
 
 seed-test:
 	$(require_backend)
-	@python -m tests.seed
+	@cd backend && python -m tests.seed
 
 tag-skeleton:
 	@git tag -a $(TAG) -m "skeleton: 可启动的壳，/health 免认证可用" && \
