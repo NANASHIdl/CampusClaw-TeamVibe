@@ -176,6 +176,24 @@ stdout 每一行都是单行 JSON，`json.loads` 全部成功。样本：
 | `WEB_PORT=abc` | `{...,"event":"invalid_env","keys":["WEB_PORT"],"reason":"invalid_value"}` | **1** |
 | 8 个必填键齐全 | 无输出，应用装配成功（24 条路由） | **0** |
 
+### 6.4 从零克隆复核（模拟队友）
+
+`gate-tamper` 这类门禁只有在**别人机器上从零克隆**之后跑才有意义。本地通过不代表克隆后通过——
+本轮就踩到了这个坑（见 §7 第 6 条）。复核方式与结果：
+
+```
+$ git clone <本地仓库> fresh && cd fresh
+layout: 通过
+secret-scan: 通过
+spec-lint: 通过
+docs-lint: 通过
+gate-tamper: 通过
+$ cd backend && pytest -q tests
+13 passed in 1.87s
+```
+
+检出后 `.gates.sha256`、`scripts/*.sh`、`Makefile` 的 CRLF 行数均为 0，与摘要一致。
+
 ## 7. 本轮修掉的缺陷
 
 | # | 缺陷 | 怎么发现的 | 修法 |
@@ -185,6 +203,10 @@ stdout 每一行都是单行 JSON，`json.loads` 全部成功。样本：
 | 3 | 日志不是 JSON 而是 console 渲染 | 起服务看 stdout：`2026-10-28 11:27:12 [info] request_done latency_ms=0 ...` | `get_logger()` 里 `structlog.get_logger().bind(module=...)` 会**立刻实体化** lazy proxy，于是在 `configure_logging()` 之前 import 的 `core.errors`、`core.middleware` 永久停在默认 ConsoleRenderer。改为 `structlog.get_logger(module=...)` 延迟绑定；并把「dev 自动 console」改成显式 `LOG_FORMAT=console`，默认一律 JSON |
 | 4 | `layout` 把散文当违规 | 骨架落地后报 `✗ services/ 出现 fastapi 依赖`，但该文件只 import 了 repositories 与 integrations | 命中的是注释里那句「本层不 import fastapi」。三个依赖检查从全文 grep 改为只匹配 `^[[:space:]]*(from\|import)[[:space:]]+`；已注入真实违规验证仍能抓到 |
 | 5 | `retrieval` 缺「资源不存在」失败路径 | `spec-lint` 收紧为逐能力校验后立刻报 `retrieval: 失败路径未覆盖 资源不存在` | 补 RT-13「会话所属班级已不存在 → 404 `1301`」。原矩阵表 C 把 RT-09（资料未就绪，断言 `hits=[]`）当成「资源不存在」，语义不对——**这是门禁抓到规约缺口，不是为了让门禁变绿而放宽** |
+| 6 | 本地 `gate-tamper` 通过、克隆后仍失败 | 修完第 1 条后从零 `git clone` 复核，5 项门禁里 `gate-tamper` 依旧红 | 根因是**摘要算的对象不对**：`.cursor/rules/*.mdc`、`.githooks/pre-commit`、`AGENTS.md`、`Makefile` 从未被编辑，工作区里还是原始检出的 CRLF；而 `.gitattributes` 让入库为 LF。摘要按 CRLF 算、克隆出 LF，必然对不上。处置：① 新增 `.gitattributes` 全仓 `eol=lf`（这才是「原 gate-tamper 恒失败」的真正根因，只重算摘要治不了）；② 删掉已跟踪文件按 index 重检出，让工作区与克隆逐字节一致；③ 重算摘要。现全仓库 CRLF 文件数 0 |
+
+> 第 6 条的方法论：**门禁的通过结论必须用「新克隆」验证，不能用「我本地能跑」代替。**
+> 这正好也是任务清单 §一「每人 clone 后按 README 跑通一次」想防的东西。
 
 ## 8. 复核方式
 

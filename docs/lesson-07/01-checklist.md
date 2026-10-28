@@ -13,7 +13,7 @@
 | # | 项 | 状态 | 证据 / 说明 |
 | --- | --- | --- | --- |
 | R1 | 地址可访问且教师有权限 | ⚠️ | 仓库 `https://github.com/NANASHIdl/CampusClaw-TeamVibe` 可访问；**主干保护规则需在 GitHub 设置界面开启**（禁止直推 `main`、要求 1 名评审人、要求 `check` 绿），代码层无法代为设置 |
-| R2 | 按 `README.md` 能从零跑起来 | ⚠️ | 骨架已落地，`docker compose up --build -d` 与 `curl localhost:8080/health` 的命令链已就位；**容器内验收（tasks.md 1.16）未执行**——编写环境无 Docker 守护进程。等价的进程内验证已做：`pytest` 13 项全绿、`uvicorn` 起服务后 `/health/live` 200 且 `/health` 503（依赖全 down），见 `03-validate-record.md` §6 |
+| R2 | 按 `README.md` 能从零跑起来 | ⚠️ | **从零 clone 已实测**：5 项门禁全绿 + `pytest` 13 项全绿（见 `03-validate-record.md` §6.4）。仍缺的是 `docker compose up --build -d` 与 `curl localhost:8080/health` 的容器内验收（tasks.md 1.16）——编写环境无 Docker 守护进程。进程内等价验证已做：`/health/live` 200、依赖全挂时 `/health` 503、空壳路由 501、404 信封、`request_id` 继承与替换 |
 | R3 | 全部提交历史中搜不到密钥明文 | ✅ | `make secret-scan` 通过：已知键名均为空、无 `sk-`/`ghp_`/`AKIA` 形态令牌、无私钥块、`.env` 未被跟踪；`.env.example` 只有键名。`.dockerignore` 也排除了 `.env`，不进镜像层 |
 | R4 | 首次提交只有 `README.md` / `.gitignore` / `LICENSE` / `.env.example` | ✅ | `git show --stat aed794d` 恰为 4 个文件；`.gitignore` 与 `.env.example` 早于任何代码 |
 | R5 | 变更以 `YYYY-MM-DD-短横小写英文名` 命名 | ✅ | `openspec/changes/2026-10-28-bootstrap-skeleton/`；`docs/changes/2026-10-28-bootstrap-skeleton.md` |
@@ -83,7 +83,7 @@
 
 | # | 缺陷 | 怎么发现的 | 修法 |
 | --- | --- | --- | --- |
-| 1 | `gate-tamper` 恒失败，但上一版清单标「通过」 | 手跑 `sha256sum -c .gates.sha256`：11 个文件全部「无法读取」 | 两层原因：① `.gates.sha256` 用 CRLF 写入，`sha256sum` 把 `\r` 当文件名；② 去掉 `\r` 后 11 项摘要**全部不匹配**——摘要在文件定稿前生成、之后没重算。已用 `sha256sum` 重算（LF），现在 `sha256sum -c` 退出码 0 |
+| 1 | `gate-tamper` 恒失败，但上一版清单标「通过」 | 手跑 `sha256sum -c .gates.sha256`：11 个文件全部「无法读取」 | 三层原因：① `.gates.sha256` 用 CRLF 写入，`sha256sum` 把 `\r` 当文件名；② 去掉 `\r` 后 11 项摘要**全部不匹配**——摘要在文件定稿前生成、之后没重算；③ 更深一层：仓库没有 `.gitattributes`，Windows 上 `core.autocrlf` 会把 clone 出来的文件转成 CRLF，`scripts/*.sh` 与摘要永远对不上。已加 `.gitattributes` 全仓 `eol=lf`、归一化工作区、重算摘要。**修完必须用新克隆验证**，本地通过不算——我第一版就是本地通过、克隆后仍失败，见 `03-validate-record.md` §7 第 6 条 |
 | 2 | `requirements.lock` 在 Windows 上装不上 | `pip install -r requirements.lock` 直接失败：`uvloop does not support Windows` | `uvloop` 加 `; sys_platform != "win32"` 标记。团队开发机就是 Windows 11，不加这条全组都装不上 |
 | 3 | 日志不是 JSON，是 console 渲染 | 起服务后看 stdout：`2026-10-28 11:27:12 [info] request_done ...` | `get_logger()` 里用 `.bind()` 会**立刻实体化** structlog 的 lazy proxy，于是在 `configure_logging()` 之前 import 的模块（`core.errors`、`core.middleware`）永久停留在默认 ConsoleRenderer。改为 `structlog.get_logger(module=...)` 延迟绑定。同时把「dev 自动 console」改成显式 `LOG_FORMAT=console`，默认一律 JSON（否则 PC-10 的 `json.loads` 断言默认就不成立） |
 | 4 | `layout` 门禁把散文当违规 | 骨架落地后 `layout` 报「services/ 出现 fastapi 依赖」，但 `services/health.py` 只 import 了 repositories 与 integrations | 原实现全文 `grep fastapi`，命中的是注释里那句「本层不 import fastapi」。三个依赖检查改为只匹配 `^\s*(from\|import)\s+`，精度提高、不漏报真实 import（已注入违规验证仍能抓到） |
