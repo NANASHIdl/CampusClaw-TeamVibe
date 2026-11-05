@@ -10,6 +10,7 @@ import { onMounted, ref } from 'vue'
 
 import { getHealth, type HealthPayload } from '@/api/health'
 import { copy } from '@/constants/copy'
+import { formatDateTime } from '@/utils/datetime'
 
 type ViewState = 'loading' | 'ready' | 'error' | 'empty'
 
@@ -40,22 +41,29 @@ onMounted(load)
 
 <template>
   <main class="cc-page">
-    <h1 class="cc-page__title">{{ copy.health.title }}</h1>
-    <p class="cc-page__description">{{ copy.health.description }}</p>
+    <div class="cc-page__head">
+      <div>
+        <h1 class="cc-page__title">{{ copy.health.title }}</h1>
+        <p class="cc-page__description">{{ copy.health.description }}</p>
+      </div>
+      <el-button @click="load">{{ copy.health.retry }}</el-button>
+    </div>
 
-    <!-- 加载中 -->
-    <el-skeleton v-if="state === 'loading'" :rows="4" animated />
+    <div v-if="state === 'loading'" class="cc-card cc-state-card">
+      <el-skeleton :rows="4" animated />
+    </div>
 
-    <!-- 错误 -->
-    <el-empty v-else-if="state === 'error'" :description="errorMessage">
-      <el-button type="primary" @click="load">{{ copy.viewState.errorRetry }}</el-button>
-    </el-empty>
+    <div v-else-if="state === 'error'" class="cc-card cc-state-card">
+      <el-empty :description="errorMessage">
+        <el-button type="primary" @click="load">{{ copy.viewState.errorRetry }}</el-button>
+      </el-empty>
+    </div>
 
-    <!-- 空状态 -->
-    <el-empty v-else-if="state === 'empty'" :description="copy.viewState.emptyDescription" />
+    <div v-else-if="state === 'empty'" class="cc-card cc-state-card">
+      <el-empty :description="copy.viewState.emptyDescription" />
+    </div>
 
-    <!-- 正常 -->
-    <section v-else-if="payload">
+    <section v-else-if="payload" class="cc-card cc-card--padded">
       <div class="cc-health__header">
         <el-tag :type="payload.status === 'ok' ? 'success' : 'warning'" size="large">
           {{ payload.status === 'ok' ? copy.health.statusOk : copy.health.statusDegraded }}
@@ -74,10 +82,8 @@ onMounted(load)
       <div class="cc-health__meta">
         <span>{{ copy.health.version }}：{{ payload.version }}</span>
         <span>{{ copy.health.commit }}：{{ payload.commit }}</span>
-        <span>{{ copy.health.time }}：{{ payload.time }}</span>
+        <span>{{ copy.health.time }}：{{ formatDateTime(payload.time) }}</span>
       </div>
-
-      <el-button @click="load">{{ copy.health.retry }}</el-button>
     </section>
   </main>
 </template>

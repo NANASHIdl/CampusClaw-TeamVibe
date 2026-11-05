@@ -23,6 +23,9 @@ export default tseslint.config(
       // 同时开启会出现「eslint --fix 改回去、prettier 又改回来」的来回拉扯。
       'vue/max-attributes-per-line': 'off',
       'vue/singleline-html-element-content-newline': 'off',
+      // 同上一类冲突：Prettier 把 HTML 空元素写成 `<input />`，这条规则要它写 `<input>`。
+      // 两者都开的结果是改一处报一处，关掉 ESLint 侧、以 Prettier 输出为准。
+      'vue/html-self-closing': 'off',
     },
   },
 )
