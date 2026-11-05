@@ -33,7 +33,9 @@ pytest-asyncio==1.4.1
 python-dotenv==1.2.4
 # multipart 上传：FastAPI 的 UploadFile / File(...) 依赖它，缺了会在导入时直接报错。
 # 这是第 3 课「上传入库」的硬依赖，不是可选项。
-python-multipart==0.0.20
+# 必须 ≥0.0.31：0.0.20 有 6 个已知漏洞（PYSEC-2026-1852/3036/3037/3038/3039/3040），
+# 最后一个修复版本是 0.0.31，这里取当前最新的 0.0.33。
+python-multipart==0.0.33
 PyYAML==6.0.3
 qdrant-client==1.20.0
 ruff==0.17.3
