@@ -32,10 +32,21 @@ fi
 
 # 2. 已知键名不得带非空值（.env.example 例外）
 # 只匹配「= 后面跟着 token 形态的值」，避免把文档里的 `SESSION_SECRET=` 这种键名引用误判
+#
+# 排除项只放「不可能被提交的东西」：本地 .env（已被 git 忽略，密钥本来就住这儿）、
+# 依赖目录与构建产物。不排除的话，本机跑一定会红在 .env 上，而 CI 检出里没有 .env
+# 反而绿——一套规则两种结果，等于没有规则。
 KEYS='SESSION_SECRET|LLM_API_KEY|EMBEDDING_API_KEY|SEED_TEACHER_PASSWORD|SEED_STUDENT_PASSWORD'
+# 用数组而不是带续行的字符串：单引号里的 `\` + 换行是字面量，会被 grep 当成路径参数，
+# 结果是排除项全部失效、扫遍 node_modules 与 .venv（表现为脚本卡住不动）。
+SKIP_DIRS=(
+  --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=scripts
+  --exclude-dir=.venv --exclude-dir=venv --exclude-dir=dist
+  --exclude-dir=.ruff_cache --exclude-dir=.pytest_cache
+  --exclude-dir=.playwright-cli --exclude-dir=uploads
+)
 hits=$(grep -rnE "(${KEYS})[[:space:]]*=[[:space:]]*[A-Za-z0-9_/+.-]{8,}" "$ROOT" \
-        --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=scripts \
-        --exclude=".env.example" 2>/dev/null || true)
+        "${SKIP_DIRS[@]}" --exclude=".env" --exclude=".env.example" 2>/dev/null || true)
 if [ -n "$hits" ]; then
   echo "$hits" | head -5
   err "已知键名出现非空值"
@@ -45,7 +56,7 @@ fi
 
 # 3. 常见令牌形态
 if grep -rnE '(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16})' "$ROOT" \
-     --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=scripts >/dev/null 2>&1; then
+     --binary-files=without-match "${SKIP_DIRS[@]}" --exclude=".env" >/dev/null 2>&1; then
   err "疑似真实令牌（sk- / ghp_ / AKIA 前缀）"
 else
   ok "无 sk-/ghp_/AKIA 形态令牌"
@@ -53,7 +64,7 @@ fi
 
 # 4. 私钥块
 if grep -rn 'BEGIN \(RSA \|OPENSSH \|EC \)\?PRIVATE KEY' "$ROOT" \
-     --exclude-dir=.git --exclude-dir=scripts >/dev/null 2>&1; then
+     --binary-files=without-match "${SKIP_DIRS[@]}" --exclude=".env" >/dev/null 2>&1; then
   err "仓库中存在私钥块"
 else
   ok "无私钥块"
