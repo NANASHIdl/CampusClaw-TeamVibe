@@ -6,8 +6,9 @@
 
 ## 当前状态（先读这一段）
 
-本仓库交付**规约、工程规范与可启动的骨架**；业务能力（登录、建班、上传、检索、提问）尚未实现，
-对应路由返回 501 `1500`。
+本仓库已实现**第 1–4 课**的范围：登录与服务端会话、角色与班级隔离、教师上传入库、
+切片与向量入库、三种模式的班级内检索。**第 5 课起的能力（助手对话、技能开关、MCP、
+作业批改）尚未实现**，对应路由返回 501 `1500`。
 
 | 部分 | 状态 | 位置 |
 | --- | --- | --- |
@@ -16,7 +17,12 @@
 | 常驻约束（规则）与按场景流程（技能） | ✅ 已入库 | `AGENTS.md`、`.cursor/rules/`、`skills/` |
 | 核查清单、能力↔Scenario 矩阵、验证记录 | ✅ 已入库 | `docs/lesson-07/` |
 | 应用骨架（FastAPI + Vue3 可启动的壳） | ✅ 已落地 | `backend/`、`frontend/`、`Dockerfile.api`、`Dockerfile.web`、`docker-compose.yml` |
-| 骨架标签 `v0.0.1-skeleton` | ⬜ 待打 | 容器内验收通过后 `make tag-skeleton` |
+| 第 3 课：认证、角色、班级隔离、上传入库 | ✅ 已实现 | `backend/app/services/auth.py`、`classroom.py`、`materials.py` |
+| 第 4 课：切片、嵌入、三模式检索、出处回溯 | ✅ 已实现 | `backend/app/services/chunking.py`、`retrieval.py`、`ingest.py` |
+| 前端：登录 / 资料列表与详情 / 检索 | ✅ 已实现 | `frontend/src/views/` |
+| 第 5–6 课：助手对话、技能、MCP | ⬜ 未开始 | 路由返回 501 `1500` |
+| 容器内验收（五服务 + 六条判据 + 降级） | ✅ 已通过 | 证据见 `docs/changes/2026-11-05-lesson3-4-implementation.md` |
+| 骨架标签 `v0.0.1-skeleton` | 🟡 可打 | 验收已通过，尚未执行 `make tag-skeleton` |
 
 `docs/lesson-07/01-checklist.md` 逐条记录了哪一项已完成、哪一项还空着，不做粉饰。
 
@@ -46,19 +52,44 @@ cp .env.example .env
 #    SESSION_SECRET 至少 32 字节：
 #      python -c "import secrets;print(secrets.token_urlsafe(48))"
 
-# 3. 一条命令起全栈
+# 3. 一条命令起全栈（migrate 会先建表，再起 api / web）
 docker compose up --build -d
 
 # 4. 验收：健康检查免认证
 curl -s http://localhost:8080/health
+
+# 5. 复现第 3、4 课的判据（28 项，逐条打印 PASS / FAIL）
+backend/.venv/Scripts/python.exe scripts/verify_lesson34.py
+
+# 6. 降级判据：停掉向量库后混合检索必须 503 code=1502，关键词模式仍可用
+docker compose stop qdrant
+backend/.venv/Scripts/python.exe scripts/verify_lesson34.py --expect-qdrant-down
+docker compose start qdrant
 ```
 
-`DATABASE_URL` / `QDRANT_URL` 留空即可：compose 会把容器内网地址
-（`db:5432`、`qdrant:6333`）注入 api；只有在宿主机直接跑 `uvicorn` 时才需要填 `localhost`。
+`DATABASE_URL` / `QDRANT_URL` **只对「宿主机直接跑 uvicorn」生效**。容器内这两个地址由
+`docker-compose.yml` 直接写成服务名（`db:5432`、`qdrant:6333`），不读 `.env`——
+因为 compose 会拿同一个 `.env` 做插值，一旦写成 `${DATABASE_URL}`，容器就会去连自己的
+回环地址，表现为 `migrate` 报 `Connect call failed ('127.0.0.1', 5432)`。
+
+**预置账号**（`APP_ENV=dev` 时由 `SEED_*` 自动创建，口令取自 `.env`）：
+
+| 账号 | 邮箱 | 班级 | 角色 |
+| --- | --- | --- | --- |
+| 张老师 | `SEED_TEACHER_EMAIL` | 1 班 | 教师 |
+| 李明 | `SEED_STUDENT_EMAIL` | 1 班 | 学生 |
+| 王老师 | `SEED_TEACHER_EMAIL` + `+b` | 2 班 | 教师 |
+| 王芳 | `SEED_STUDENT_EMAIL` + `+b` | 2 班 | 学生 |
+
+两个班各预置 3 份 `.md` 讲义，标题刻意不重名——「跨班不可见」要能当场分辨取到的是哪一班。
+
+**嵌入**：`EMBEDDING_BASE_URL` 留空时使用离线确定性嵌入（字符二元组哈希，256 维），
+不需要任何外部服务与密钥；填上则走 OpenAI 兼容的 `/embeddings`。两种情况下业务代码、
+阈值与接口都不变。
 
 - 入口：`http://localhost:8080`（端口取自 `.env` 的 `WEB_PORT`）
 - 健康检查：`GET /health`，返回版本、时间、`db` / `qdrant` / `llm` 三项依赖连通状态
-- 业务路由：骨架期一律 501 `{"code":1500,"message":"未实现"}`，不是 404
+- 未实现的业务路由：501 `{"code":1500,"message":"未实现"}`，不是 404
 - 门禁：`make check`（14 项），任一子项非零退出码即未通过
 - 只跑文档与规约相关的门禁：`make check-docs`（5 项）
 - 不装 Docker 只跑后端：`cd backend && pip install -r requirements.lock && pytest -q tests`
