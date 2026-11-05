@@ -10,6 +10,16 @@ WORKDIR /app
 COPY frontend/ ./
 RUN if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; \
     else echo "警告：缺 package-lock.json，本次用 npm install，构建不可复现" && npm install --no-audit --no-fund; fi
+
+# 登录页「测试账号」区。三个都默认空：正式构建不显示这一块，
+# 口令也就不会出现在产物里（AGENTS.md §1.3）。本机演示由 compose 传入 build args。
+ARG VITE_SHOW_DEMO_ACCOUNTS=""
+ARG VITE_DEMO_TEACHER_PASSWORD=""
+ARG VITE_DEMO_STUDENT_PASSWORD=""
+ENV VITE_SHOW_DEMO_ACCOUNTS=$VITE_SHOW_DEMO_ACCOUNTS \
+    VITE_DEMO_TEACHER_PASSWORD=$VITE_DEMO_TEACHER_PASSWORD \
+    VITE_DEMO_STUDENT_PASSWORD=$VITE_DEMO_STUDENT_PASSWORD
+
 RUN npm run build
 
 FROM nginx:1.27-alpine AS runtime

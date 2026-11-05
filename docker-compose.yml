@@ -2,25 +2,56 @@
 #
 # 端口约定（05 §1、tasks.md 1.13）：只有 web 映射宿主端口，api / db / qdrant 一律不映射，
 # 从宿主机访问不到数据库与向量库，减少误连与横向移动面。
+#
+# 迁移单独一个一次性服务（`migrate`），不在应用启动时自动迁移（07 §3）。
+# api 等它成功退出才启动，所以「填完 .env 一条命令」就能得到一个已建表的库。
+#
+# ⚠ 容器内地址一律写字面量，不要写成 ${DATABASE_URL:-...}。
+# 原因：compose 会拿仓库根的 .env 做插值，而那份 .env 是给「宿主机直跑」用的，
+# 里面是 localhost:5432 / localhost:6333。一旦写成插值，容器里就会连自己的回环地址，
+# 表现为 migrate 报 `Connect call failed ('127.0.0.1', 5432)`。
+# 服务名 db / qdrant 是这份 compose 决定的，不是可配置项。
+
+x-api-image: &api-image
+  image: campusclaw-api:local
+  build:
+    context: .
+    dockerfile: Dockerfile.api
+    args:
+      GIT_COMMIT: ${GIT_COMMIT:-dev}
+  env_file:
+    - .env
 
 services:
+  migrate:
+    <<: *api-image
+    # 发布第 2 步：建表 / 升级结构。只跑一次，跑完退出。
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      DATABASE_URL: postgresql+asyncpg://campusclaw:campusclaw@db:5432/campusclaw
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile.api
-      args:
-        GIT_COMMIT: ${GIT_COMMIT:-dev}
-    env_file:
-      - .env
+    <<: *api-image
     environment:
       # 容器内网地址由 compose 注入，覆盖 .env 里给宿主机直跑用的 localhost
       APP_ENV: ${APP_ENV:-dev}
       API_PORT: "8000"
-      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://campusclaw:campusclaw@db:5432/campusclaw}
-      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      DATABASE_URL: postgresql+asyncpg://campusclaw:campusclaw@db:5432/campusclaw
+      QDRANT_URL: http://qdrant:6333
+      UPLOAD_DIR: /app/uploads
     expose:
       - "8000"
+    volumes:
+      # 附件落盘的持久化：容器删了、卷还在（第 3 课「容器重启之后数据为什么还在」）
+      - uploads:/app/uploads
     depends_on:
+      migrate:
+        condition: service_completed_successfully
       db:
         condition: service_healthy
       qdrant:
@@ -39,7 +70,7 @@ services:
               sys.exit(1)
       interval: 15s
       timeout: 5s
-      start_period: 15s
+      start_period: 20s
       retries: 3
     restart: unless-stopped
 
@@ -68,6 +99,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.web
+      args:
+        # 登录页测试账号：本机演示默认打开；把 .env 里这行清空即为「只显示邮箱」，
+        # 口令也就不会被打进镜像（AGENTS.md §1.3）。
+        VITE_SHOW_DEMO_ACCOUNTS: ${VITE_SHOW_DEMO_ACCOUNTS:-}
+        VITE_DEMO_TEACHER_PASSWORD: ${SEED_TEACHER_PASSWORD:-}
+        VITE_DEMO_STUDENT_PASSWORD: ${SEED_STUDENT_PASSWORD:-}
     ports:
       - "${WEB_PORT:-8080}:80"
     depends_on:
@@ -78,3 +115,4 @@ services:
 volumes:
   pgdata:
   qdrantdata:
+  uploads:
