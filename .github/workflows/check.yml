@@ -9,6 +9,39 @@ on:
 jobs:
   gate:
     runs-on: ubuntu-latest
+
+    # 第 3 课起有了迁移文件，`make check` 里的 api-migrate 会真跑
+    # `alembic check && alembic downgrade -1 && alembic upgrade head`，三步都要连库。
+    # 骨架期 `migrations/versions/` 是空的，该项直接跳过，所以旧 workflow 不配库也能绿——
+    # 现在不配就会红在「连不上数据库」，红的原因与代码对错无关。
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: campusclaw
+          POSTGRES_PASSWORD: campusclaw
+          POSTGRES_DB: campusclaw
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U campusclaw -d campusclaw"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    # 后端配置是必填项校验（core/config.py），缺一项 get_settings() 就抛 ValidationError。
+    # 向量的外部服务在单测里用不到，这里只填能通过校验的占位值；
+    # 任何形似密钥的值都不写进仓库，SESSION_SECRET 在执行门禁那一步现场生成。
+    env:
+      APP_ENV: test
+      WEB_PORT: "8080"
+      DATABASE_URL: postgresql+asyncpg://campusclaw:campusclaw@localhost:5432/campusclaw
+      QDRANT_URL: http://localhost:6333
+      LLM_BASE_URL: http://127.0.0.1:9/llm
+      LLM_API_KEY: ci-key
+      LLM_MODEL: ci-model
+      EMBEDDING_MODEL: ci-embed
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,4 +84,7 @@ jobs:
           cd frontend && npm audit --omit=dev --audit-level=high
 
       - name: 代码门禁
-        run: make check
+        run: |
+          # SESSION_SECRET 要求 ≥32 字符；现场生成，仓库里不留字面密钥
+          export SESSION_SECRET="$(head -c 24 /dev/urandom | base64 | tr -d '\n')"
+          make check
