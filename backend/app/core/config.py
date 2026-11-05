@@ -89,6 +89,10 @@ class Settings(BaseSettings):
     # ---- 会话 ----
     SESSION_SECRET: str = Field(min_length=32)
     SESSION_TTL_MINUTES: int = Field(default=720, ge=1)
+    SESSION_COOKIE_NAME: str = "cc_session"
+    # 登录失败限制：5 次锁 15 分钟（03 §10）
+    LOGIN_MAX_FAILS: int = Field(default=5, ge=1)
+    LOGIN_LOCK_MINUTES: int = Field(default=15, ge=1)
 
     # ---- 模型与嵌入 ----
     LLM_BASE_URL: str = Field(min_length=1)
@@ -99,15 +103,22 @@ class Settings(BaseSettings):
     EMBEDDING_BASE_URL: str = ""
     EMBEDDING_API_KEY: str = ""
     EMBEDDING_MODEL: str = Field(min_length=1)
+    # 未配置 EMBEDDING_BASE_URL 时使用离线确定性嵌入，维度由本项决定；
+    # 接真实嵌入服务后本项必须与其输出维度一致，否则向量库建集会失败。
+    EMBEDDING_DIM: int = Field(default=256, ge=8, le=4096)
 
     # ---- 检索 ----
     SEARCH_VECTOR_MIN: float = Field(default=0.35, ge=0.0, le=1.0)
     SEARCH_TOP_K: int = Field(default=8, ge=1, le=50)
 
     # ---- 上传与切片 ----
+    # 落盘根目录。容器内映射到数据卷，README 的「down 之后数据还在」靠它（第 3 课）
+    UPLOAD_DIR: str = "uploads"
     UPLOAD_MAX_BYTES: int = Field(default=20 * 1024 * 1024, ge=1)
     UPLOAD_MAX_FILES: int = Field(default=20, ge=1)
-    UPLOAD_ALLOWED_EXT: str = "pdf,md,txt,docx"
+    # 第 3 课范围：仅接受 .txt 与 .md；PDF / Word 解析明确不在本课范围。
+    # 放开新类型 = 改这里 + 在 integrations/text_extract.py 补一个提取器。
+    UPLOAD_ALLOWED_EXT: str = "md,txt"
     CHUNK_SIZE_CHARS: int = Field(default=800, ge=1)
     CHUNK_OVERLAP_CHARS: int = Field(default=120, ge=0)
 
@@ -119,6 +130,9 @@ class Settings(BaseSettings):
     SEED_TEACHER_PASSWORD: str = ""
     SEED_STUDENT_EMAIL: str = ""
     SEED_STUDENT_PASSWORD: str = ""
+    # 第二个班的账号由第一个班的邮箱派生（`name+b@domain`），口令沿用同一个。
+    # 目的是让「跨班不可见」在没有第二套密钥的前提下也能当场复现（第 3 课判据二）。
+    SEED_CLASS_B_SUFFIX: str = "+b"
 
     @property
     def allowed_outbound_hosts(self) -> list[str]:

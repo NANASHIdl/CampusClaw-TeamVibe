@@ -54,3 +54,25 @@ def ulid_to_timestamp_ms(value: str) -> int:
     for char in value[:10]:
         timestamp = (timestamp << 5) | _ALPHABET.index(char)
     return timestamp
+
+
+def ulid_to_uuid(value: str) -> str:
+    """把 ULID 的 128 位原样转成 UUID 的规范字符串。
+
+    为什么需要：Qdrant 的点 ID 只接受无符号整数或 UUID，不认 26 位 ULID 字符串。
+    这里做的是**同值换写法**——16 个字节一个不改，只是换成带连字符的 UUID 表示，
+    因此 `chunks.id`（ULID）与向量点 ID（UUID）仍然是同一个 128 位值，可逆、无碰撞。
+    切片表里的 `vector_id` 存的就是这个字符串。
+    """
+    if not is_valid_ulid(value):
+        raise ValueError(f"not a ulid: {value!r}")
+
+    number = 0
+    for char in value:
+        number = (number << 5) | _ALPHABET.index(char)
+    # ULID 26 字符 = 130 位，最高两位恒为 0；取低 128 位即原始 16 字节
+    raw = (number & ((1 << 128) - 1)).to_bytes(16, "big")
+
+    from uuid import UUID
+
+    return str(UUID(bytes=raw))

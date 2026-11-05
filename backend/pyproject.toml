@@ -15,6 +15,7 @@ dependencies = [
     "httpx>=0.28,<0.29",
     "qdrant-client>=1.20,<1.21",
     "bcrypt>=5,<6",
+    "python-multipart>=0.0.20,<0.1",
 ]
 
 [project.optional-dependencies]

@@ -74,3 +74,12 @@ async def dispose_engine() -> None:
     """停机时释放连接池。"""
     if get_engine.cache_info().currsize:
         await get_engine().dispose()
+
+
+def affected_rows(result: object) -> int:
+    """UPDATE / DELETE 的影响行数。
+
+    SQLAlchemy 的 `execute()` 返回类型在类型层面是 `Result`，只有 DML 才带 `rowcount`。
+    统一在这里取一次，避免每个仓储各写一份 `# type: ignore`。
+    """
+    return int(getattr(result, "rowcount", 0) or 0)

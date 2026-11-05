@@ -43,6 +43,31 @@
 
 唯一索引：`UNIQUE(class_id, user_id)` —— 重复入班靠它保证幂等，不靠应用层「先查再插」。
 
+## auth_sessions — 登录会话
+
+| 字段 | 类型 | 约束 | 含义 | 敏感级 |
+| --- | --- | --- | --- | --- |
+| `id` | CHAR(26) | PK | 会话记录标识（不是令牌） | 内部 |
+| `user_id` | CHAR(26) | FK users.id, NOT NULL | 会话所属用户 | 内部 |
+| `class_id` | CHAR(26) | FK classes.id, NULL | 登录时选定的班级；**`class_id` 的唯一来源** | 内部 |
+| `token_hash` | VARCHAR(64) | UNIQUE, NOT NULL | 令牌的 SHA-256，**不存原值** | 机密 |
+| `expires_at` | TIMESTAMPTZ | NOT NULL | 过期时间，默认登录后 720 分钟 | 内部 |
+| `ip` | VARCHAR(45) | NOT NULL DEFAULT '' | 登录来源 IP，仅用于失败计数与审计 | 敏感 |
+
+注销即删除本行；过期由启动清理任务回收。
+
+## login_attempts — 登录失败计数
+
+| 字段 | 类型 | 约束 | 含义 | 敏感级 |
+| --- | --- | --- | --- | --- |
+| `id` | CHAR(26) | PK | 计数记录标识 | 内部 |
+| `email` | VARCHAR(160) | NOT NULL | 尝试登录的邮箱（不校验是否存在，避免枚举） | 敏感 |
+| `ip` | VARCHAR(45) | NOT NULL DEFAULT '' | 来源 IP | 敏感 |
+| `fail_count` | INTEGER | NOT NULL DEFAULT 0 | 连续失败次数，成功即清零 | 内部 |
+| `locked_until` | TIMESTAMPTZ | NULL | 锁定到期时间；连续失败 5 次后置为 15 分钟后 | 内部 |
+
+唯一索引：`UNIQUE(email, ip)`。
+
 ## materials — 资料
 
 | 字段 | 类型 | 约束 | 含义 | 敏感级 |
@@ -72,7 +97,9 @@
 | `chunk_index` | INTEGER | CHECK >= 0 | 资料内序号，从 0 起 | 内部 |
 | `content` | TEXT | NOT NULL | 切片正文（800 字符，重叠 120） | 敏感 |
 | `char_count` | INTEGER | NOT NULL | 字符数 | 内部 |
-| `vector_id` | VARCHAR(64) | NULL | 向量库中的点 ID，与 `id` 相同 | 内部 |
+| `char_start` | INTEGER | NOT NULL | 切片在正文中的起始字符下标（含） | 内部 |
+| `char_end` | INTEGER | NOT NULL | 切片在正文中的结束字符下标（不含） | 内部 |
+| `vector_id` | VARCHAR(64) | NULL | 向量库点 ID：`chunks.id` 的 UUID 写法 | 内部 |
 
 唯一索引：`UNIQUE(material_id, chunk_index)`；索引 `(class_id)`。
 

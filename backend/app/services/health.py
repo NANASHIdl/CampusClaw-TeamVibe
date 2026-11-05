@@ -19,14 +19,26 @@ DEP_KEYS = ("db", "qdrant", "llm")
 
 
 async def collect_deps() -> dict[str, str]:
-    """三项依赖各带 2 秒超时，并发探测；任一项失败不影响其他项的结果。"""
+    """三项依赖各带 2 秒超时，并发探测；任一项失败不影响其他项的结果。
+
+    `llm` 是有条件依赖：本项目的检索链路支持**离线确定性嵌入**
+    （`EMBEDDING_BASE_URL` 为空即启用，见 04 §检索选型）。这种部署下根本没有
+    外部模型服务，若仍去探它，`/health/ready` 会永远 503、`api` 容器永远 unhealthy，
+    于是「不用模型」反而变成起不来的原因。因此未配置模型地址时该项报 `up`：
+    语义是「当前配置下这项不构成依赖」，而不是「探测通过」。
+    deps 的取值集合仍只有 up/down，与 05 §3 一致。
+    """
     settings = get_settings()
 
-    db_ok, qdrant_ok, llm_ok = await asyncio.gather(
+    db_ok, qdrant_ok = await asyncio.gather(
         ping_db(),
         probe_qdrant(settings.QDRANT_URL),
-        probe_llm(settings.LLM_BASE_URL),
     )
+
+    if settings.EMBEDDING_BASE_URL.strip():
+        llm_ok = await probe_llm(settings.LLM_BASE_URL)
+    else:
+        llm_ok = True
 
     return {
         "db": "up" if db_ok else "down",

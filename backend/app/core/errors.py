@@ -15,11 +15,16 @@ from typing import Any
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from sqlalchemy.exc import DBAPIError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.logging import get_logger
 
 logger = get_logger(module="api")
+
+# 依赖（数据库）不可达时的统一文案：不把"连不上库"说成"口令错误"（ID-12）
+DEP_UNAVAILABLE_MESSAGE = "服务暂时不可用，请稍后再试"
 
 
 class ErrorCode(IntEnum):
@@ -163,6 +168,22 @@ def envelope(
     }
 
 
+def _dump(data: Any) -> Any:
+    """把 Pydantic 模型转成可 JSON 化的结构；其余原样返回。"""
+    if isinstance(data, BaseModel):
+        return data.model_dump(mode="json")
+    if isinstance(data, list | tuple):
+        return [_dump(item) for item in data]
+    if isinstance(data, dict):
+        return {key: _dump(value) for key, value in data.items()}
+    return data
+
+
+def success(request: Request, data: Any, message: str = "ok") -> dict[str, Any]:
+    """成功响应。路由函数返回这个，不手写外层字段（02 §3）。"""
+    return envelope(ErrorCode.OK, message, _dump(data), request_id_of(request))
+
+
 def _error_response(
     request: Request,
     code: ErrorCode,
@@ -228,6 +249,23 @@ def register_exception_handlers(app: FastAPI) -> None:
             ErrorCode.INTERNAL,
             DEFAULT_MESSAGES[ErrorCode.INTERNAL],
             exc.status_code,
+        )
+
+    @app.exception_handler(DBAPIError)
+    async def _db_unavailable(request: Request, exc: DBAPIError) -> JSONResponse:
+        # 数据库不可达 → 503 1503，不是 500 也不是 401（ID-12 / MT-20）
+        logger.error(
+            "dep_unreachable",
+            module="api",
+            dep="db",
+            error_code=int(ErrorCode.STORAGE_UNREACHABLE),
+            route=request.url.path,
+        )
+        return _error_response(
+            request,
+            ErrorCode.STORAGE_UNREACHABLE,
+            DEP_UNAVAILABLE_MESSAGE,
+            status.HTTP_503_SERVICE_UNAVAILABLE,
         )
 
     @app.exception_handler(Exception)

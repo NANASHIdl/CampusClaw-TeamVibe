@@ -34,7 +34,7 @@ logger = get_logger(module="api")
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """启停钩子。停机时释放连接池并记 shutdown_complete（05 §3）。"""
+    """启停钩子。启动时做四件幂等的事，停机时释放连接池（05 §3）。"""
     logger.info(
         "app_started",
         module="api",
@@ -42,11 +42,53 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         commit=_settings.APP_COMMIT,
         env=_settings.APP_ENV,
     )
+    await _bootstrap()
     try:
         yield
     finally:
         await dispose_engine()
         logger.info("shutdown_complete", module="api")
+
+
+async def _bootstrap() -> None:
+    """启动自检。
+
+    每一步都单独兜住异常：数据库还没迁移、向量库还没起来时，服务仍要能启动，
+    让 `/health` 如实报 `down`，而不是让容器反复重启（05 §3）。
+    """
+    import asyncio
+    from pathlib import Path
+
+    from app.core.config import get_settings
+    from app.integrations import vectorstore
+    from app.repositories import auth as auth_repo
+    from app.repositories.base import session_scope
+    from app.services import ingest as ingest_service
+    from app.services import seed as seed_service
+
+    settings = get_settings()
+
+    try:
+        await asyncio.to_thread(Path(settings.UPLOAD_DIR).mkdir, parents=True, exist_ok=True)
+    except OSError as exc:
+        logger.error("upload_dir_unavailable", module="api", reason=str(exc))
+
+    try:
+        # 先等向量库就绪，再灌种子：首启时 Qdrant 往往还要几秒才能接受请求
+        await vectorstore.wait_until_ready()
+        async with session_scope() as session:
+            await auth_repo.delete_expired(session)
+            await session.commit()
+        await ingest_service.recover_pending()
+        await seed_service.ensure_seed_data()
+        await ingest_service.retry_pending()
+    except Exception as exc:  # 数据库未就绪：记录后继续启动，健康检查会报 down
+        logger.warning("bootstrap_db_skipped", module="api", reason=type(exc).__name__)
+
+    try:
+        await vectorstore.ensure_collection()
+    except Exception as exc:  # 向量库未就绪同理，不阻断启动
+        logger.warning("bootstrap_qdrant_skipped", module="api", reason=type(exc).__name__)
 
 
 def create_app() -> FastAPI:

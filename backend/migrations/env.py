@@ -18,6 +18,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import get_settings
+from app.models import Base
 
 config = context.config
 
@@ -27,7 +28,8 @@ if config.config_file_name is not None:
 settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
-target_metadata = None
+# 业务表已落地，autogenerate / `alembic check` 需要真实 metadata 才能比对出差异
+target_metadata = Base.metadata
 
 
 def do_run_migrations(connection: Connection) -> None:
